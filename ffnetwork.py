@@ -26,6 +26,7 @@ class FFNetwork(object):
             activation_funcs='relu',
             weights_initializer='trunc_normal',
             biases_initializer='zeros',
+            reg_initializer=None,
             num_inh=0,
             pos_constraint=False,
             log_activations=False):
@@ -45,6 +46,8 @@ class FFNetwork(object):
             biases_initializer (str or list of strs, optional): initializer for
                 the biases in each layer; replicated if a single element.
                 See Layer class for options.
+            reg_initializer (dict): reg_type/vals as key-value pairs to 
+                uniformly initialize layer regularization
             num_inh (None, int or list of ints, optional)
             pos_constraint (bool or list of bools, optional):
             log_activations (bool, optional): True to use tf.summary on layer 
@@ -108,6 +111,7 @@ class FFNetwork(object):
                     activation_func=activation_funcs[layer],
                     weights_initializer=weights_initializer[layer],
                     biases_initializer=biases_initializer[layer],
+                    reg_initializer=reg_initializer,
                     num_inh=num_inh[layer],
                     pos_constraint=pos_constraint[layer],
                     log_activations=log_activations))
@@ -117,19 +121,18 @@ class FFNetwork(object):
             self.log = True
         else:
             self.log = False
-
     # END __init__
 
-    def read_weights(self, sess):
+    def assign_model_params(self, sess):
         """Read weights/biases in numpy arrays into tf Variables"""
         with tf.name_scope(self.scope):
             for layer in range(self.num_layers):
-                self.layers[layer].read_weights(sess)
+                self.layers[layer].assign_layer_params(sess)
 
-    def write_weights(self, sess):
+    def write_model_params(self, sess):
         """Write weights/biases in tf Variables to numpy arrays"""
         for layer in range(self.num_layers):
-            self.layers[layer].write_weights(sess)
+            self.layers[layer].write_layer_params(sess)
 
     def set_regularization(self, reg_type, reg_val):
         """Set regularization penalties for all layers"""

@@ -126,11 +126,12 @@ class Network(object):
                 for early stopping
             epochs_summary (int, optional): number of epochs between saving
                 network summary information
-            early_stop (bool, optional): if true, training exits when the
+            early_stop (bool, optional): if True, training exits when the
                 cost function evaluated on test_indxs begins to increase 
             output_dir (str, optional): absolute path for saving checkpoint
                 files and summary files; must be present if either epochs_ckpt  
-                or epochs_summary is not 'None'.
+                or epochs_summary is not 'None'. If not None, graph will 
+                automatically be saved.
 
         Returns:
             epoch (int): number of total training epochs
@@ -162,7 +163,7 @@ class Network(object):
 
         with tf.Session(graph=self.graph, config=self.sess_config) as sess:
 
-            if epochs_summary is not None:
+            if epochs_summary is not None or output_dir is not None:
                 if os.path.isdir(
                         os.path.join(output_dir, 'summaries', 'train')):
                     tf.gfile.DeleteRecursively(
@@ -171,14 +172,15 @@ class Network(object):
                 train_writer = tf.summary.FileWriter(
                     os.path.join(output_dir, 'summaries', 'train'),
                     sess.graph)
-                if os.path.isdir(
-                        os.path.join(output_dir, 'summaries', 'test')):
-                    tf.gfile.DeleteRecursively(
-                        os.path.join(output_dir, 'summaries', 'test'))
-                    os.mkdir(os.path.join(output_dir, 'summaries', 'test'))
-                test_writer = tf.summary.FileWriter(
-                    os.path.join(output_dir, 'summaries', 'test'),
-                    sess.graph)
+                if test_indxs is not None:
+                    if os.path.isdir(
+                            os.path.join(output_dir, 'summaries', 'test')):
+                        tf.gfile.DeleteRecursively(
+                            os.path.join(output_dir, 'summaries', 'test'))
+                        os.mkdir(os.path.join(output_dir, 'summaries', 'test'))
+                    test_writer = tf.summary.FileWriter(
+                        os.path.join(output_dir, 'summaries', 'test'),
+                        sess.graph)
             else:
                 train_writer = None
                 test_writer = None
@@ -189,10 +191,10 @@ class Network(object):
                                        - set(layers_to_skip))
                 var_list = []
                 for layer in layers_included:
-                    var_list.append(self.network.layers[layer].weights_tf)
+                    var_list.append(self.network.layers[layer].weights_var)
                     if not biases_const:
                         var_list.append(
-                            self.network.layers[layer].biases_tf)
+                            self.network.layers[layer].biases_var)
 
                 with tf.variable_scope('optimizer'):
                     self._define_optimizer(var_list)
@@ -224,8 +226,8 @@ class Network(object):
             else:
                 raise ValueError('Invalid learning algorithm')
 
-            # write out weights to numpy arrays before session closes
-            self.network.write_weights(sess)
+            # write out weights/biases to numpy arrays before session closes
+            self.network.write_model_params(sess)
 
         return epoch
     # END train
@@ -309,10 +311,11 @@ class Network(object):
                     self.merge_summaries,
                     feed_dict={self.indices: train_indxs})
                 train_writer.add_summary(summary, epoch)
-                summary = sess.run(
-                    self.merge_summaries,
-                    feed_dict={self.indices: test_indxs})
-                test_writer.add_summary(summary, epoch)
+                if test_indxs is not None:
+                    summary = sess.run(
+                        self.merge_summaries,
+                        feed_dict={self.indices: test_indxs})
+                    test_writer.add_summary(summary, epoch)
 
             # check for early stopping
             if early_stop and epoch % epochs_early_stop == 0:
@@ -334,10 +337,11 @@ class Network(object):
                             self.merge_summaries,
                             feed_dict={self.indices: train_indxs})
                         train_writer.add_summary(summary, epoch)
-                        summary = sess.run(
-                            self.merge_summaries,
-                            feed_dict={self.indices: test_indxs})
-                        test_writer.add_summary(summary, epoch)
+                        if test_indxs is not None:
+                            summary = sess.run(
+                                self.merge_summaries,
+                                feed_dict={self.indices: test_indxs})
+                            test_writer.add_summary(summary, epoch)
                     break  # out of epochs loop
                 else:
                     prev_cost = cost_test
