@@ -42,7 +42,7 @@ class Regularization(object):
 
         # set all default values to zero
         self.vals = {'l1': None, 'l2': None, 'd2t': None}
-        self.vals_tf = {'l1': None, 'l2': None, 'd2t': None}
+        self.vals_tf = {'l1': tf.Variable(0,trainable=False), 'l2': tf.Variable(0,trainable=False), 'd2t': tf.Variable(0,trainable=False) }
         self.mats = {'l1': None, 'l2': None, 'd2t': None}
 
         # read user input
@@ -90,6 +90,8 @@ class Regularization(object):
         for reg_type, reg_val in self.vals.iteritems():
             # only assign if applicable
             if reg_val is not None:
+                print(reg_type)
+                print(self.vals_tf[reg_type])
                 with tf.name_scope(reg_type + '_loss'):
                     sess.run(
                         self.vals_tf[reg_type].assign(self.vals[reg_type]))
