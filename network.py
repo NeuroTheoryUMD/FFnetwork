@@ -130,18 +130,19 @@ class Network(object):
                 cost function evaluated on test_indxs begins to increase 
             output_dir (str, optional): absolute path for saving checkpoint
                 files and summary files; must be present if either epochs_ckpt  
-                or epochs_summary is not 'None'. If not None, graph will 
-                automatically be saved.
+                or epochs_summary is not 'None'. If `output_dir` is not 'None',
+                the graph will automatically be saved.
 
         Returns:
             epoch (int): number of total training epochs
 
         Raises:
-            ValueError: If input_data and output_data don't share time dim
+            ValueError: If `input_data` and `output_data` don't share time dim
             ValueError: If data time dim doesn't match that specified in model
-            ValueError: If epochs_ckpt is not None and output_dir is None
-            ValueError: If epochs_summary is not None and output_dir is None
-            ValueError: If early_stop is True and test_indxs is None
+            ValueError: If `epochs_ckpt` is not None and output_dir is 'None'
+            ValueError: If `epochs_summary` is not 'None' and `output_dir` is 
+                'None'
+            ValueError: If `early_stop` is True and `test_indxs` is 'None'
 
         """
 
@@ -163,24 +164,35 @@ class Network(object):
 
         with tf.Session(graph=self.graph, config=self.sess_config) as sess:
 
-            if epochs_summary is not None or output_dir is not None:
-                if os.path.isdir(
-                        os.path.join(output_dir, 'summaries', 'train')):
-                    tf.gfile.DeleteRecursively(
-                        os.path.join(output_dir, 'summaries', 'train'))
-                    os.mkdir(os.path.join(output_dir, 'summaries', 'train'))
+            # handle output directories
+            if output_dir is not None:
+
+                # remake checkpoint directory
+                if epochs_ckpt is not None:
+                    ckpts_dir = os.path.join(output_dir, 'ckpts')
+                    if os.path.isdir(ckpts_dir):
+                        tf.gfile.DeleteRecursively(ckpts_dir)
+                    os.makedirs(ckpts_dir)
+
+                # remake training summary directories
+                summary_dir_train = os.path.join(
+                    output_dir, 'summaries', 'train')
+                if os.path.isdir(summary_dir_train):
+                    tf.gfile.DeleteRecursively(summary_dir_train)
+                os.makedirs(summary_dir_train)
                 train_writer = tf.summary.FileWriter(
-                    os.path.join(output_dir, 'summaries', 'train'),
-                    sess.graph)
+                    summary_dir_train, sess.graph)
+
+                # remake testing summary directories
+                summary_dir_test = os.path.join(
+                    output_dir, 'summaries', 'test')
                 if test_indxs is not None:
-                    if os.path.isdir(
-                            os.path.join(output_dir, 'summaries', 'test')):
-                        tf.gfile.DeleteRecursively(
-                            os.path.join(output_dir, 'summaries', 'test'))
-                        os.mkdir(os.path.join(output_dir, 'summaries', 'test'))
+                    if os.path.isdir(summary_dir_test):
+                        tf.gfile.DeleteRecursively(summary_dir_test)
+                    os.makedirs(summary_dir_test)
                     test_writer = tf.summary.FileWriter(
-                        os.path.join(output_dir, 'summaries', 'test'),
-                        sess.graph)
+                        summary_dir_test, sess.graph)
+
             else:
                 train_writer = None
                 test_writer = None
@@ -276,7 +288,8 @@ class Network(object):
                     feed_dict={self.indices: batch_indxs})
 
             # print training updates
-            if epochs_disp is not None and epoch % epochs_disp == 0:
+            if epochs_disp is not None and \
+                    (epoch % epochs_disp == epochs_disp - 1 or epoch == 0):
 
                 cost = sess.run(
                     self.cost,
@@ -285,11 +298,9 @@ class Network(object):
                 print('\nEpoch %03d:' % epoch)
                 print('   train cost = %2.5f' % cost)
                 print('   train r2 = %1.4f' % np.mean(r2s))
-                # print(sess.run(self.network._layers[0]._weights))
-                # print(np.std(sess.run(self.data_in_var)))
 
+                # print additional testing info
                 if test_indxs is not None:
-                    # print additional testing info
                     cost_test = sess.run(
                         self.cost,
                         feed_dict={self.indices: test_indxs})
@@ -298,38 +309,47 @@ class Network(object):
                     print('   test r2 = %1.4f' % np.mean(r2s_test))
 
             # save model checkpoints
-            if epochs_ckpt is not None and epoch % epochs_ckpt == 0:
+            if epochs_ckpt is not None and \
+                    (epoch % epochs_ckpt == epochs_ckpt - 1 or epoch == 0):
                 save_file = os.path.join(
                     output_dir, 'ckpts',
                     str('epoch_%05g.ckpt' % epoch))
-                self.save_model(sess, save_file)
+                self.checkpoint_model(sess, save_file)
 
             # save model summaries
             if epochs_summary is not None and \
-                    epoch % epochs_summary == 0:
+                    (epoch % epochs_summary == epochs_summary - 1
+                     or epoch == 0):
                 summary = sess.run(
                     self.merge_summaries,
                     feed_dict={self.indices: train_indxs})
                 train_writer.add_summary(summary, epoch)
+                print('Writing train summary')
                 if test_indxs is not None:
                     summary = sess.run(
                         self.merge_summaries,
                         feed_dict={self.indices: test_indxs})
                     test_writer.add_summary(summary, epoch)
+                    print('Writing test summary')
 
             # check for early stopping
-            if early_stop and epoch % epochs_early_stop == 0:
+            if early_stop and \
+                    epoch % epochs_early_stop == epochs_early_stop - 1:
+
                 cost_test = sess.run(
                     self.cost,
                     feed_dict={self.indices: test_indxs})
+
                 if cost_test >= prev_cost:
+
                     # save model checkpoint if desired and necessary
                     if epochs_ckpt is not None and \
                             epochs_ckpt != epochs_early_stop:
                         save_file = os.path.join(
                             output_dir, 'ckpts',
                             str('epoch_%05g.ckpt' % epoch))
-                        self.save_model(sess, save_file)
+                        self.checkpoint_model(sess, save_file)
+
                     # save model summaries if desired and necessary
                     if epochs_summary is not None and \
                             epochs_summary != epochs_early_stop:
@@ -337,11 +357,14 @@ class Network(object):
                             self.merge_summaries,
                             feed_dict={self.indices: train_indxs})
                         train_writer.add_summary(summary, epoch)
+                        print('Writing train summary')
                         if test_indxs is not None:
                             summary = sess.run(
                                 self.merge_summaries,
                                 feed_dict={self.indices: test_indxs})
                             test_writer.add_summary(summary, epoch)
+                            print('Writing test summary')
+
                     break  # out of epochs loop
                 else:
                     prev_cost = cost_test
@@ -453,8 +476,8 @@ class Network(object):
         model"""
         raise NotImplementedError()
 
-    def save_model(self, sess, save_file):
-        """Save model parameters 
+    def checkpoint_model(self, sess, save_file):
+        """Checkpoint model parameters in tf Variables
 
         Args:
             sess (tf.Session object): current session object to run graph
@@ -466,22 +489,73 @@ class Network(object):
             os.makedirs(os.path.dirname(save_file))
 
         self.saver.save(sess, save_file)
-        print('Model saved to %s' % save_file)
+        print('Model checkpointed to %s' % save_file)
 
-    def load_model(self, sess, save_file):
-        """Load previously saved model parameters 
+    def restore_model(self, save_file, input_data, output_data):
+        """Restore previously checkpointed model parameters in tf Variables 
 
         Args:
             sess (tf.Session object): current session object to run graph
             save_file (str): full path to saved model
+            input_data (time x input_dim numpy array): input to network
+            output_data (time x output_dim numpy array): desired output of 
+                network
 
         Raises:
-            ValueError: If save_file is not a valid filename
+            ValueError: If `save_file` is not a valid filename
 
         """
 
         if not os.path.isfile(save_file + '.meta'):
             raise ValueError(str('%s is not a valid filename' % save_file))
 
-        self.saver.restore(sess, save_file)
-        print('Model loaded from %s' % save_file)
+        with tf.Session(graph=self.graph, config=self.sess_config) as sess:
+
+            # initialize tf params in new session
+            self._restore_params(sess, input_data, output_data)
+            # restore saved variables into tf Variables
+            self.saver.restore(sess, save_file)
+            # write out weights/biases to numpy arrays before session closes
+            self.network.write_model_params(sess)
+
+    def save_model(self, save_file):
+        """Save full model using cPickle
+
+        Args:
+            save_file (str): full path to output file
+
+        """
+
+        import cPickle as pickle
+
+        if not os.path.isdir(os.path.dirname(save_file)):
+            os.makedirs(os.path.dirname(save_file))
+
+        with file(save_file, 'wb') as f:
+            pickle.dump(self, f)
+        print('Model pickled to %s' % save_file)
+
+    def load_model(self, save_file):
+        """Restore previously checkpointed model parameters 
+
+        Args:
+            save_file (str): full path to saved model
+
+        Raises:
+            ValueError: If `save_file` is not a valid filename
+
+        """
+
+        import cPickle as pickle
+
+        if not os.path.isfile(save_file):
+            raise ValueError(str('%s is not a valid filename' % save_file))
+
+        with file(save_file, 'rb') as f:
+            temp_network = pickle.load(f)
+
+        for layer in range(self.network.num_layers):
+            self.network.layers[layer].weights = \
+                temp_network.network.layers[layer].weights
+            self.network.layers[layer].biases = \
+                temp_network.network.layers[layer].biases
