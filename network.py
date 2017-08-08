@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import division
 
 import os
+import sys
 import numpy as np
 import tensorflow as tf
 
@@ -14,7 +15,8 @@ class Network(object):
     _log_min = 1e-5  # constant to add to all arguments to logarithms
 
     def __init__(self):
-        """Constructor for Network class"""
+        """Constructor for Network class; model architecture should be defined
+        here"""
 
         # default: use cpu for training
         self.use_gpu = False
@@ -519,24 +521,27 @@ class Network(object):
             self.network.write_model_params(sess)
 
     def save_model(self, save_file):
-        """Save full model using cPickle
+        """Save full network object using dill (extension of pickle)
 
         Args:
             save_file (str): full path to output file
 
         """
 
-        import cPickle as pickle
+        import dill
+
+        sys.setrecursionlimit(10000)  # for dill calls to pickle
 
         if not os.path.isdir(os.path.dirname(save_file)):
             os.makedirs(os.path.dirname(save_file))
 
         with file(save_file, 'wb') as f:
-            pickle.dump(self, f)
+            dill.dump(self, f)
         print('Model pickled to %s' % save_file)
 
-    def load_model(self, save_file):
-        """Restore previously checkpointed model parameters 
+    @classmethod
+    def load_model(cls, save_file):
+        """Restore previously saved network object 
 
         Args:
             save_file (str): full path to saved model
@@ -546,16 +551,10 @@ class Network(object):
 
         """
 
-        import cPickle as pickle
+        import dill
 
         if not os.path.isfile(save_file):
             raise ValueError(str('%s is not a valid filename' % save_file))
 
         with file(save_file, 'rb') as f:
-            temp_network = pickle.load(f)
-
-        for layer in range(self.network.num_layers):
-            self.network.layers[layer].weights = \
-                temp_network.network.layers[layer].weights
-            self.network.layers[layer].biases = \
-                temp_network.network.layers[layer].biases
+            return dill.load(f)
