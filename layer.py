@@ -58,7 +58,7 @@ class Layer(object):
             num_outputs (int): dimension of output data
             activation_func (str, optional): pointwise function applied to  
                 output of affine transformation
-                ['relu'] | 'sigmoid' | 'tanh' | 'identity' | 'softplus' | 'elu'                
+                ['relu'] | 'sigmoid' | 'tanh' | 'identity' | 'softplus' | 'elu' | 'quad'
             weights_initializer (str, optional): initializer for the weights
                 ['trunc_normal'] | 'normal' | 'zeros'
             biases_initializer (str, optional): initializer for the biases
@@ -106,6 +106,8 @@ class Layer(object):
             self.activation_func = tf.identity
         elif activation_func == 'softplus':
             self.activation_func = tf.nn.softplus
+        elif activation_func == 'quad':
+            self.activation_func = tf.square
         elif activation_func == 'elu':
             self.activation_func = tf.nn.elu
         else:
@@ -184,7 +186,7 @@ class Layer(object):
 
             # save layer regularization info
             self.reg = Regularization(num_inputs=num_inputs,
-                                      vals=reg_initializer)
+                                      num_outputs=num_outputs,vals=reg_initializer)
 
             # push data through layer
             if self.pos_constraint:

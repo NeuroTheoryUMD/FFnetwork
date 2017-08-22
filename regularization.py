@@ -23,12 +23,14 @@ class Regularization(object):
             penalties
         num_inputs (int): dimension of layer input size; for constructing reg 
             matrices
-        
+        num_outputs (int): dimension of layer output size; for generating target
+            weights in norm2
+
     """
 
-    _allowed_reg_types = ['l1', 'l2', 'd2t']
+    _allowed_reg_types = ['l1', 'l2', 'd2t','norm2']
 
-    def __init__(self, num_inputs=None, vals=None):
+    def __init__(self, num_inputs=None, num_outputs=None, vals=None):
         """Constructor for Regularization class
         
         Args:
@@ -46,7 +48,10 @@ class Regularization(object):
         # check input
         if num_inputs is None:
             raise TypeError('Must specify `num_inputs`')
+        if num_outputs is None:
+            raise TypeError('Must specify `num_outputs`')
         self.num_inputs = num_inputs
+        self.num_outputs = num_outputs
 
         # set all default values to None
         none_default = {}
@@ -177,6 +182,10 @@ class Regularization(object):
             reg_pen = tf.multiply(
                 self.vals_var['l2'],
                 tf.nn.l2_loss(weights))
+        elif reg_type == 'norm2':
+            reg_pen = tf.multiply(
+                self.vals_var['norm2'],
+                tf.square(tf.reduce_sum(tf.square(weights))-self.num_outputs))
         elif reg_type == 'd2t':
             reg_pen = tf.multiply(
                 self.vals_var['d2t'],
