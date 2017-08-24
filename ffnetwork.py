@@ -134,11 +134,6 @@ class FFNetwork(object):
         for layer in range(self.num_layers):
             self.layers[layer].write_layer_params(sess)
 
-    def set_regularization(self, reg_type, reg_val):
-        """Set regularization penalties for all layers"""
-        for layer in range(self.num_layers):
-            self.layers[layer].set_regularization(reg_type, reg_val)
-
     def assign_reg_vals(self, sess):
         """Update default tf Graph with new regularization penalties"""
         with tf.name_scope(self.scope):

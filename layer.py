@@ -148,6 +148,8 @@ class Layer(object):
                 raise ValueError('Invalid weights_initializer ''%s''' %
                                  weights_initializer)
             # initialize numpy array that will feed placeholder
+            if pos_constraint is True:
+                init_weights = np.maximum(init_weights,0)
             self.weights = init_weights.astype('float32')
             # initialize weights placeholder/variable
             with tf.name_scope('weights_init'):
@@ -219,6 +221,8 @@ class Layer(object):
     def write_layer_params(self, sess):
         """Write weights/biases in tf Variables to numpy arrays"""
         self.weights = sess.run(self.weights_var)
+        if self.pos_constraint is True:
+            self.weights = np.maximum(self.weights, 0)
         self.biases = sess.run(self.biases_var)
 
     def define_regularization_loss(self):

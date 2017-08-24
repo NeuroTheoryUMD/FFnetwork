@@ -209,3 +209,14 @@ class Regularization(object):
             reg_dict[reg_type] = reg_pen
 
         return reg_dict
+
+    def reg_copy( self ):
+        """Copy regularization to new structure"""
+
+        reg_target = Regularization(num_inputs=self.num_inputs,
+                                    num_outputs=self.num_outputs )
+        reg_target.vals = self.vals
+        reg_target.mats = self.mats
+
+        return reg_target
+    # END reg_copy
