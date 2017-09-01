@@ -18,18 +18,17 @@ class FFNetwork(object):
 
     """
 
-    def __init__(
-            self,
-            scope=None,
-            inputs=None,
-            layer_sizes=None,
-            activation_funcs='relu',
-            weights_initializer='trunc_normal',
-            biases_initializer='zeros',
-            reg_initializer=None,
-            num_inh=0,
-            pos_constraint=False,
-            log_activations=False):
+    def __init__(self,
+                 scope=None,
+                 inputs=None,
+                 layer_sizes=None,
+                 activation_funcs='relu',
+                 weights_initializer='trunc_normal',
+                 biases_initializer='zeros',
+                 reg_initializer=None,
+                 num_inh=0,
+                 pos_constraint=False,
+                 log_activations=False):
         """Constructor for Network class
 
         Args:
