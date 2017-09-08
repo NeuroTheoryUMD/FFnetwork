@@ -30,7 +30,7 @@ class Regularization(object):
 
     _allowed_reg_types = ['l1', 'l2', 'd2t','norm2']
 
-    def __init__(self, num_inputs=None, num_outputs=None, vals=None):
+    def __init__(self, input_dims=None, num_outputs=None, vals=None):
         """Constructor for Regularization class
         
         Args:
@@ -46,11 +46,15 @@ class Regularization(object):
         from copy import deepcopy
 
         # check input
-        if num_inputs is None:
+        if input_dims is None:
             raise TypeError('Must specify `num_inputs`')
         if num_outputs is None:
             raise TypeError('Must specify `num_outputs`')
-        self.num_inputs = num_inputs
+
+        if isinstance(input_dims,list) is False:
+            input_dims = [input_dims,1,1]
+
+        self.input_dims = input_dims
         self.num_outputs = num_outputs
 
         # set all default values to None
@@ -153,13 +157,13 @@ class Regularization(object):
             reg_type (str): see `allowed_reg_types` for options
 
         """
-
+        filter_size = self.input_dims[0]*self.input_dims[1]*self.input_dims[2]
         if reg_type == 'd2t':
-            n = self.num_inputs
-            reg_mat = np.zeros(shape=[n, n], dtype='float32')
-            reg_mat += np.diag([-1.0] * (n - 1), -1) \
-                + np.diag([2.0] * n) \
-                + np.diag([-1.0] * (n - 1), 1)
+            #n = self.input_dims[0]
+            reg_mat = np.zeros(shape=[filter_size, filter_size], dtype='float32')
+            reg_mat += np.diag([-1.0] * (filter_size-1), -1) \
+                + np.diag([2.0] * filter_size) \
+                + np.diag([-1.0] * (filter_size-1), 1)
             # Add boundary conditions (none) at edges
             reg_mat[0, :] = 0
             reg_mat[-1, :] = 0
@@ -213,7 +217,7 @@ class Regularization(object):
     def reg_copy( self ):
         """Copy regularization to new structure"""
 
-        reg_target = Regularization(num_inputs=self.num_inputs,
+        reg_target = Regularization(input_dims=self.input_dims,
                                     num_outputs=self.num_outputs )
         reg_target.vals = self.vals
         reg_target.mats = self.mats

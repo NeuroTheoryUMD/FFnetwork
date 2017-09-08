@@ -40,7 +40,7 @@ class Layer(object):
             self,
             scope=None,
             inputs=None,
-            num_inputs=None,
+            num_inputs=None,  # this can now be a list
             num_outputs=None,
             activation_func='relu',
             weights_initializer='trunc_normal',
@@ -48,7 +48,8 @@ class Layer(object):
             reg_initializer=None,
             num_inh=0,
             pos_constraint=False,
-            log_activations=False):
+            log_activations=False,
+            additional_params_dict=None ):
         """Constructor for Layer class
 
         Args:
@@ -69,6 +70,8 @@ class Layer(object):
                 positive
             log_activations (bool, optional): True to use tf.summary on layer 
                 activations
+            additional_params_dict (dictionary, optional): for use with layer children
+                and passed into graph build
 
         Raises:
             TypeError: If `variable_scope` is not specified
@@ -91,7 +94,15 @@ class Layer(object):
 
         self.scope = scope
 
-        # make layer size explicit
+        # Make layer size explicit
+        if isinstance(num_inputs,list):
+            input_dims = num_inputs
+            while len(input_dims) < 3:
+                input_dims.append(1)
+            num_inputs = input_dims[0]*input_dims[1]*input_dims[2]
+        else:
+            input_dims = [num_inputs,1,1]
+
         self.num_inputs = num_inputs
         self.num_outputs = num_outputs
 
@@ -133,83 +144,91 @@ class Layer(object):
         else:
             self.log = False
 
-        # build layer
+        # Set up layer regularization
+        self.reg = Regularization(input_dims=input_dims,
+                                  num_outputs=num_outputs, vals=reg_initializer)
+
+        # Initialize weight values
+        weight_dims = (self.num_inputs, self.num_outputs)
+        if weights_initializer == 'trunc_normal':
+            init_weights = np.random.normal(size=weight_dims, scale=0.1)
+        elif weights_initializer == 'normal':
+            init_weights = np.random.normal(size=weight_dims, scale=0.1)
+        elif weights_initializer == 'zeros':
+            init_weights = np.zeros(shape=weight_dims, dtype='float32')
+        else:
+            raise ValueError('Invalid weights_initializer ''%s''' %
+                             weights_initializer)
+        if pos_constraint is True:
+            init_weights = np.maximum(init_weights, 0)
+        # Initialize numpy array that will feed placeholder
+        self.weights = init_weights.astype('float32')
+
+        # Initialize bias values
+        bias_dims = (1, num_outputs)
+        if biases_initializer == 'trunc_normal':
+            init_biases = np.random.normal(size=bias_dims, scale=0.1)
+        elif biases_initializer == 'normal':
+            init_biases = np.random.normal(size=bias_dims, scale=0.1)
+        elif biases_initializer == 'zeros':
+            init_biases = np.zeros(shape=bias_dims, dtype='float32')
+        else:
+            raise ValueError('Invalid biases_initializer ''%s''' %
+                             biases_initializer)
+        # Initialize numpy array that will feed placeholder
+        self.biases = init_biases.astype('float32')
+
+        # Build layer
         with tf.name_scope(self.scope):
 
-            # resolve weights initializer string
-            weight_dims = (num_inputs, num_outputs)
-            if weights_initializer == 'trunc_normal':
-                init_weights = np.random.normal(size=weight_dims, scale=0.1)
-            elif weights_initializer == 'normal':
-                init_weights = np.random.normal(size=weight_dims, scale=0.1)
-            elif weights_initializer == 'zeros':
-                init_weights = np.zeros(shape=weight_dims, dtype='float32')
-            else:
-                raise ValueError('Invalid weights_initializer ''%s''' %
-                                 weights_initializer)
-            # initialize numpy array that will feed placeholder
-            if pos_constraint is True:
-                init_weights = np.maximum(init_weights,0)
-            self.weights = init_weights.astype('float32')
             # initialize weights placeholder/variable
             with tf.name_scope('weights_init'):
                 self.weights_ph = tf.placeholder_with_default(
                     self.weights,
-                    shape=[num_inputs, num_outputs],
+                    shape=[self.num_inputs, self.num_outputs],
                     name='weights_ph')
             self.weights_var = tf.Variable(
                 self.weights_ph,
                 dtype=tf.float32,
                 name='weights_var')
 
-            # resolve biases initializer string
-            bias_dims = (1, num_outputs)
-            if biases_initializer == 'trunc_normal':
-                init_biases = np.random.normal(size=bias_dims, scale=0.1)
-            elif biases_initializer == 'normal':
-                init_biases = np.random.normal(size=bias_dims, scale=0.1)
-            elif biases_initializer == 'zeros':
-                init_biases = np.zeros(shape=bias_dims, dtype='float32')
-            else:
-                raise ValueError('Invalid biases_initializer ''%s''' %
-                                 biases_initializer)
-            # initialize numpy array that will feed placeholder
-            self.biases = init_biases.astype('float32')
             # initialize biases placeholder/variable
             with tf.name_scope('biases_init'):
                 self.biases_ph = tf.placeholder_with_default(
                     self.biases,
-                    shape=[1, num_outputs],
+                    shape=[1, self.num_outputs],
                     name='biases_ph')
             self.biases_var = tf.Variable(
                 self.biases_ph,
                 dtype=tf.float32,
                 name='biases_var')
 
-            # save layer regularization info
-            self.reg = Regularization(num_inputs=num_inputs,
-                                      num_outputs=num_outputs,vals=reg_initializer)
+            self._build_graph( inputs, additional_params_dict )
 
-            # push data through layer
-            if self.pos_constraint:
-                pre = tf.add(tf.matmul(inputs,
-                                       tf.maximum(0.0, self.weights_var)),
-                             self.biases_var)
-            else:
-                pre = tf.add(tf.matmul(inputs, self.weights_var),
-                             self.biases_var)
-
-            if self.ei_mask_var is not None:
-                post = tf.multiply(self.activation_func(pre), self.ei_mask_var)
-            else:
-                post = self.activation_func(pre)
-
-            self.outputs = post
-
-            if self.log:
-                tf.summary.histogram('act_pre', pre)
-                tf.summary.histogram('act_post', post)
     # END __init__
+
+    def _build_graph( self, inputs, params_dict=None ):
+        # push data through layer
+
+        if self.pos_constraint:
+            pre = tf.add(tf.matmul(inputs,
+                                   tf.maximum(0.0, self.weights_var)),
+                         self.biases_var)
+        else:
+            pre = tf.add(tf.matmul(inputs, self.weights_var),
+                         self.biases_var)
+
+        if self.ei_mask_var is not None:
+            post = tf.multiply(self.activation_func(pre), self.ei_mask_var)
+        else:
+            post = self.activation_func(pre)
+
+        self.outputs = post
+
+        if self.log:
+            tf.summary.histogram('act_pre', pre)
+            tf.summary.histogram('act_post', post)
+    # END layer._build_layer
 
     def assign_layer_params(self, sess):
         """Read weights/biases in numpy arrays into tf Variables"""
