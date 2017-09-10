@@ -5,7 +5,7 @@ from __future__ import division
 
 import numpy as np
 import tensorflow as tf
-
+import FFnetwork.create_Tikhonov_matrix as makeRmats
 
 class Regularization(object):
     """Class for handling layer-wise regularization
@@ -158,16 +158,11 @@ class Regularization(object):
 
         """
         filter_size = self.input_dims[0]*self.input_dims[1]*self.input_dims[2]
-        if reg_type == 'd2t':
-            #n = self.input_dims[0]
-            reg_mat = np.zeros(shape=[filter_size, filter_size], dtype='float32')
-            reg_mat += np.diag([-1.0] * (filter_size-1), -1) \
-                + np.diag([2.0] * filter_size) \
-                + np.diag([-1.0] * (filter_size-1), 1)
-            # Add boundary conditions (none) at edges
-            reg_mat[0, :] = 0
-            reg_mat[-1, :] = 0
-            name = 'd2t_laplacian'
+        if reg_type in ['d2t','d2x','d2xt']:
+
+            reg_mat = makeRmats.create_Tikhonov_matrix( self.input_dims, reg_type )
+            name = reg_type + '_laplacian'
+
         else:
             reg_mat = 0.0
             name = 'lp_placeholder'
