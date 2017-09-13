@@ -28,7 +28,8 @@ class FFNetwork(object):
                  reg_initializer=None,
                  num_inh=0,
                  pos_constraint=False,
-                 log_activations=False):
+                 log_activations=False,
+                 additional_params=None ):
         """Constructor for Network class
 
         Args:
@@ -99,28 +100,47 @@ class FFNetwork(object):
         elif len(pos_constraint) != self.num_layers:
             raise ValueError('Invalid number of pos_con')
 
-        self.layers = []
+        network_params = {'layer_sizes':layer_sizes,
+                          'activation_funcs': activation_funcs,
+                          'weights_initializers': weights_initializer,
+                          'biases_initializers': biases_initializer,
+                          'reg_initializer': reg_initializer,
+                          'num_inh_list': num_inh,
+                          'pos_constraints':pos_constraint,
+                          'log_activations': log_activations }
+
         with tf.name_scope(self.scope):
-            for layer in range(self.num_layers):
-                self.layers.append(Layer(
-                    scope='layer_%i' % layer,
-                    inputs=inputs,
-                    num_inputs=layer_sizes[layer],
-                    num_outputs=layer_sizes[layer + 1],
-                    activation_func=activation_funcs[layer],
-                    weights_initializer=weights_initializer[layer],
-                    biases_initializer=biases_initializer[layer],
-                    reg_initializer=reg_initializer,
-                    num_inh=num_inh[layer],
-                    pos_constraint=pos_constraint[layer],
-                    log_activations=log_activations))
-                inputs = self.layers[-1].outputs
+            self._define_network( inputs, network_params, additional_params )
 
         if log_activations:
             self.log = True
         else:
             self.log = False
-    # END __init__
+    # END FFNetwork.__init__
+
+    def _define_network( self, inputs, network_params, additional_params=None ):
+
+        layer_sizes = network_params['layer_sizes']
+
+        self.layers = []
+        for layer in range(self.num_layers):
+            self.layers.append(
+                Layer( scope='layer_%i' % layer,
+                       inputs=inputs,
+                       num_inputs = layer_sizes[layer],
+                       num_outputs = layer_sizes[layer + 1],
+                       activation_func = network_params['activation_funcs'][layer],
+                       weights_initializer = network_params['weights_initializers'][layer],
+                       biases_initializer = network_params['biases_initializers'][layer],
+                       reg_initializer = network_params['reg_initializer'],
+                       num_inh = network_params['num_inh_list'][layer],
+                       pos_constraint = network_params['pos_constraints'][layer],
+                       log_activations = network_params['log_activations'] ))
+
+            inputs = self.layers[-1].outputs
+
+    # END FFNetwork._define_network
+
 
     def assign_model_params(self, sess):
         """Read weights/biases in numpy arrays into tf Variables"""

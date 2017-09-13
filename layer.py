@@ -203,11 +203,11 @@ class Layer(object):
                 dtype=tf.float32,
                 name='biases_var')
 
-            self._build_graph( inputs, additional_params_dict )
+            self._define_network( inputs, additional_params_dict )
 
     # END __init__
 
-    def _build_graph( self, inputs, params_dict=None ):
+    def _define_network( self, inputs, params_dict=None ):
         # push data through layer
 
         if self.pos_constraint:
