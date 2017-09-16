@@ -190,6 +190,16 @@ class Regularization(object):
                 self.vals_var['d2t'],
                 tf.reduce_sum(tf.square(
                     tf.matmul(self.mats['d2t'], weights))))
+        elif reg_type == 'd2x':
+            reg_pen = tf.multiply(
+                self.vals_var['d2x'],
+                tf.reduce_sum(tf.square(
+                    tf.matmul(self.mats['d2x'], weights))))
+        elif reg_type == 'd2xt':
+            reg_pen = tf.multiply(
+                self.vals_var['d2xt'],
+                tf.reduce_sum(tf.square(
+                    tf.matmul(self.mats['d2xt'], weights))))
         else:
             reg_pen = tf.constant(0.0)
         return reg_pen
