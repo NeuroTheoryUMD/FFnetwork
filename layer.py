@@ -40,7 +40,7 @@ class Layer(object):
             self,
             scope=None,
             inputs=None,
-            num_inputs=None,  # this can now be a list
+            num_inputs=None,  # this can be a list up to 3-dimensions
             num_outputs=None,
             activation_func='relu',
             weights_initializer='trunc_normal',
@@ -83,7 +83,6 @@ class Layer(object):
             ValueError: If `biases_initializer` is not a valid string
 
         """
-
         # check for required inputs
         if scope is None:
             raise TypeError('Must specify layer scope')

@@ -28,7 +28,7 @@ class Regularization(object):
 
     """
 
-    _allowed_reg_types = ['l1', 'l2', 'd2t','norm2']
+    _allowed_reg_types = ['l1', 'l2', 'd2t', 'd2x', 'd2xt', 'norm2']
 
     def __init__(self, input_dims=None, num_outputs=None, vals=None):
         """Constructor for Regularization class
@@ -159,10 +159,8 @@ class Regularization(object):
         """
         filter_size = self.input_dims[0]*self.input_dims[1]*self.input_dims[2]
         if reg_type in ['d2t','d2x','d2xt']:
-
             reg_mat = makeRmats.create_Tikhonov_matrix( self.input_dims, reg_type )
             name = reg_type + '_laplacian'
-
         else:
             reg_mat = 0.0
             name = 'lp_placeholder'

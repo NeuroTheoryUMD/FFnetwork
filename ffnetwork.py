@@ -35,9 +35,9 @@ class FFNetwork(object):
         Args:
             scope (str): name scope for network
             inputs (tf Tensor or placeholder): input to network
-            layer_sizes (list of ints): list of layer sizes, including input
-                and output
-            activation_funcs (str or list of strs, optional): pointwise 
+            layer_sizes (list of ints): list of layer sizes, including input and output.
+                First argument (input size) can be up to a 3-dimensional list.
+            activation_funcs (str or list of strs, optional): pointwise
                 function for each layer; replicated if a single element. 
                 See Layer class for options.
             weights_initializer (str or list of strs, optional): initializer  
@@ -161,6 +161,7 @@ class FFNetwork(object):
 
     def define_regularization_loss(self):
         """Build regularization loss portion of default tf graph"""
+
         with tf.name_scope(self.scope):
             # define regularization loss for each layer separately...
             reg_ops = [None for _ in range(self.num_layers)]
