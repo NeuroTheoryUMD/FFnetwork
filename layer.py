@@ -104,6 +104,7 @@ class Layer(object):
 
         self.num_inputs = num_inputs
         self.num_outputs = num_outputs
+        self.num_filters = num_outputs  # this is default to have N filters for N outputs in base layer class
 
         # resolve activation function string
         if activation_func == 'relu':
