@@ -104,6 +104,7 @@ class Network(object):
             epochs_early_stop=None,
             epochs_summary=None,
             early_stop=False,
+            redo_graph=False,
             output_dir=None):
         """Network training function
 
@@ -129,7 +130,9 @@ class Network(object):
             epochs_summary (int, optional): number of epochs between saving
                 network summary information
             early_stop (bool, optional): if True, training exits when the
-                cost function evaluated on test_indxs begins to increase 
+                cost function evaluated on test_indxs begins to increase
+            redo_graph (bool, optional): will perform manual rebuild of graph, which
+                is automatic if <biases_const> or <layers_to_skip> is used
             output_dir (str, optional): absolute path for saving checkpoint
                 files and summary files; must be present if either epochs_ckpt  
                 or epochs_summary is not 'None'. If `output_dir` is not 'None',
@@ -199,10 +202,17 @@ class Network(object):
                 train_writer = None
                 test_writer = None
 
-            # redefine optimizer if necessary
+            # Redefine optimizer if necessary
             if layers_to_skip is not None:
+                redo_graph = True
                 layers_included = list(set(range(self.network.num_layers))
                                        - set(layers_to_skip))
+            else:
+                layers_included = range(self.network.num_layers)
+            if biases_const is not None:
+                redo_graph = True
+
+            if redo_graph:
                 var_list = []
                 for layer in layers_included:
                     var_list.append(self.network.layers[layer].weights_var)
