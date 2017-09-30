@@ -127,8 +127,8 @@ class FFNetwork(object):
             self.layers.append(
                 Layer( scope='layer_%i' % layer,
                        inputs=inputs,
-                       num_inputs = layer_sizes[layer],
-                       num_outputs = layer_sizes[layer + 1],
+                       input_dims = layer_sizes[layer],
+                       output_dims = layer_sizes[layer + 1],
                        activation_func = network_params['activation_funcs'][layer],
                        weights_initializer = network_params['weights_initializers'][layer],
                        biases_initializer = network_params['biases_initializers'][layer],

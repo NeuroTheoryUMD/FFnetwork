@@ -40,8 +40,8 @@ class Layer(object):
             self,
             scope=None,
             inputs=None,
-            num_inputs=None,  # this can be a list up to 3-dimensions
-            num_outputs=None,
+            input_dims=None,  # this can be a list up to 3-dimensions
+            output_dims=None,
             activation_func='relu',
             weights_initializer='trunc_normal',
             biases_initializer='zeros',
@@ -55,8 +55,8 @@ class Layer(object):
         Args:
             scope (str): name scope for variables and operations in layer
             inputs (tf Tensor or placeholder): input to layer
-            num_inputs (int): dimension of input data
-            num_outputs (int): dimension of output data
+            input_dims (int or list): dimensions of input data
+            output_dims (int or list): dimensions of output data
             activation_func (str, optional): pointwise function applied to  
                 output of affine transformation
                 ['relu'] | 'sigmoid' | 'tanh' | 'identity' | 'softplus' | 'elu' | 'quad'
@@ -68,8 +68,7 @@ class Layer(object):
             num_inh (int, optional): number of inhibitory units in layer
             pos_constraint (bool, optional): True to constrain layer weights to be 
                 positive
-            log_activations (bool, optional): True to use tf.summary on layer 
-                activations
+            log_activations (bool, optional): True to use tf.summary on layer activations
             additional_params_dict (dictionary, optional): for use with layer children
                 and passed into graph build
 
@@ -88,23 +87,34 @@ class Layer(object):
             raise TypeError('Must specify layer scope')
         if inputs is None:
             raise TypeError('Must specify layer input')
-        if num_inputs is None or num_outputs is None:
+        if input_dims is None or output_dims is None:
             raise TypeError('Must specify both input and output dimensions')
 
         self.scope = scope
 
-        # Make layer size explicit
-        if isinstance(num_inputs,list):
-            input_dims = num_inputs
+        #print(self.scope, 'Input Dims:', input_dims)
+        #print(self.scope, 'Output Dims:', output_dims)
+
+        # Make input and output sizes explicit
+        if isinstance(input_dims,list):
             while len(input_dims) < 3:
                 input_dims.append(1)
             num_inputs = input_dims[0]*input_dims[1]*input_dims[2]
         else:
-            input_dims = [num_inputs,1,1]
+            num_inputs = input_dims
+            input_dims = [input_dims,1,1]
+        if isinstance(output_dims,list):
+            while len(output_dims) < 3:
+                output_dims.append(1)
+            num_outputs = output_dims[0]*output_dims[1]*output_dims[2]
+        else:
+            num_outputs = output_dims
+            output_dims = [output_dims,1,1]
 
-        self.num_inputs = num_inputs
-        self.num_outputs = num_outputs
+        self.input_dims = input_dims
+        self.output_dims = output_dims
         self.num_filters = num_outputs  # this is default to have N filters for N outputs in base layer class
+        #self.output_dims = output_dims
 
         # resolve activation function string
         if activation_func == 'relu':
@@ -121,6 +131,8 @@ class Layer(object):
             self.activation_func = tf.square
         elif activation_func == 'elu':
             self.activation_func = tf.nn.elu
+        elif activation_func == 'exp':
+            self.activation_func = tf.exp
         else:
             raise ValueError('Invalid activation function ''%s''' %
                              activation_func)
@@ -149,7 +161,7 @@ class Layer(object):
                                   num_outputs=num_outputs, vals=reg_initializer)
 
         # Initialize weight values
-        weight_dims = (self.num_inputs, self.num_outputs)
+        weight_dims = (num_inputs, num_outputs)
         if weights_initializer == 'trunc_normal':
             init_weights = np.random.normal(size=weight_dims, scale=0.1)
         elif weights_initializer == 'normal':
@@ -185,7 +197,7 @@ class Layer(object):
             with tf.name_scope('weights_init'):
                 self.weights_ph = tf.placeholder_with_default(
                     self.weights,
-                    shape=[self.num_inputs, self.num_outputs],
+                    shape=[num_inputs, num_outputs],
                     name='weights_ph')
             self.weights_var = tf.Variable(
                 self.weights_ph,
@@ -196,7 +208,7 @@ class Layer(object):
             with tf.name_scope('biases_init'):
                 self.biases_ph = tf.placeholder_with_default(
                     self.biases,
-                    shape=[1, self.num_outputs],
+                    shape=[1, num_outputs],
                     name='biases_ph')
             self.biases_var = tf.Variable(
                 self.biases_ph,
@@ -209,7 +221,6 @@ class Layer(object):
 
     def _define_network( self, inputs, params_dict=None ):
         # push data through layer
-
         if self.pos_constraint:
             pre = tf.add(tf.matmul(inputs,
                                    tf.maximum(0.0, self.weights_var)),
