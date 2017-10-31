@@ -21,37 +21,35 @@ class FFNetwork(object):
     def __init__(self,
                  scope=None,
                  inputs=None,
-                 layer_sizes=None,
-                 activation_funcs='relu',
-                 weights_initializer='trunc_normal',
-                 biases_initializer='zeros',
-                 reg_initializer=None,
-                 num_inh=0,
-                 pos_constraint=False,
-                 log_activations=False,
-                 additional_params=None ):
-        """Constructor for Network class
+                 params_dict=None ):
+        """Constructor for FF-Network class
 
         Args:
             scope (str): name scope for network
             inputs (tf Tensor or placeholder): input to network
-            layer_sizes (list of ints): list of layer sizes, including input and output.
-                First argument (input size) can be up to a 3-dimensional list.
-            activation_funcs (str or list of strs, optional): pointwise
+            params_dict (dictionary): contains parameters about details of FFnetwork:
+            -> layer_sizes (list of ints): list of layer sizes, including input and output.
+                all arguments (input size) can be up to a 3-dimensional list.
+                REQUIRED (NO DEFAULT)
+            -> num_inh: list or single number denoting number of inhibitory units in each
+                layer. This specifies the output of that number of units multiplied by -1
+                DEFAULT = 0 (and having any single value will be used for all layers)
+            -> activation_funcs (str or list of strs, optional): pointwise
                 function for each layer; replicated if a single element. 
-                See Layer class for options.
-            weights_initializer (str or list of strs, optional): initializer  
+                DEFAULT = 'relu'. See Layer class for other options.
+            -> pos_constraints (bool or list of bools, optional): constrains all weights to be positive
+                DEFAULTS = False.
+            -> reg_initializer (dict): a list of dictionaries: one for each layer. Within the
+                dictionary, reg_type/vals as key-value pairs.
+                DEFAULT = None
+            -> weights_initializer (str or list of strs, optional): initializer
                 for the weights in each layer; replicated if a single element.
-                See Layer class for options.
-            biases_initializer (str or list of strs, optional): initializer for
+                DEFAULT = 'trunc_normal'. See Layer class for other options.
+            -> biases_initializer (str or list of strs, optional): initializer for
                 the biases in each layer; replicated if a single element.
-                See Layer class for options.
-            reg_initializer (dict): reg_type/vals as key-value pairs to 
-                uniformly initialize layer regularization
-            num_inh (None, int or list of ints, optional)
-            pos_constraint (bool or list of bools, optional):
-            log_activations (bool, optional): True to use tf.summary on layer 
-                activations
+                DEFAULT = 'zeros'. See Layer class for other options.
+            -> log_activations (bool, optional): True to use tf.summary on layer activations
+                DEFAULT = False
 
         Raises:
             TypeError: If `scope` is not specified
@@ -68,57 +66,69 @@ class FFNetwork(object):
             raise TypeError('Must specify network scope')
         if inputs is None:
             raise TypeError('Must specify network input')
-        if layer_sizes is None:
-            raise TypeError('Must specify layer sizes')
+        if params_dict is None:
+            raise TypeError('Must specify parameters dictionary.')
 
         self.scope = scope
-        self.num_layers = len(layer_sizes) - 1
 
-        # expand layer options
-        if type(activation_funcs) is not list:
-            activation_funcs = [activation_funcs] * self.num_layers
-        elif len(activation_funcs) != self.num_layers:
+        # Check information in params_dict and set defaults
+        if 'layer_sizes' not in params_dict:
+            params_dict['layer_sizes'] = None
+
+        self.num_layers = len(params_dict['layer_sizes']) - 1
+
+        if 'activation_funcs' not in params_dict:
+            params_dict['activation_funcs'] = 'relu'
+        if type(params_dict['activation_funcs']) is not list:
+            params_dict['activation_funcs'] = [params_dict['activation_funcs']] * self.num_layers
+        elif len(params_dict['activation_funcs']) != self.num_layers:
             raise ValueError('Invalid number of activation_funcs')
 
-        if type(weights_initializer) is not list:
-            weights_initializer = [weights_initializer] * self.num_layers
-        elif len(weights_initializer) != self.num_layers:
+        if 'weights_initializers' not in params_dict:
+            params_dict['weights_initializers'] = 'trunc_normal'
+        if type(params_dict['weights_initializers']) is not list:
+            params_dict['weights_initializers'] = [params_dict['weights_initializers']] * self.num_layers
+        elif len(params_dict['weights_initializers']) != self.num_layers:
             raise ValueError('Invalid number of weights_initializer')
 
-        if type(biases_initializer) is not list:
-            biases_initializer = [biases_initializer] * self.num_layers
-        elif len(biases_initializer) != self.num_layers:
+        if 'biases_initializers' not in params_dict:
+            params_dict['biases_initializers'] = 'zeros'
+        if type(params_dict['biases_initializers']) is not list:
+            params_dict['biases_initializers'] = [params_dict['biases_initializers']] * self.num_layers
+        elif len(params_dict['biases_initializers']) != self.num_layers:
             raise ValueError('Invalid number of biases_initializer')
 
-        if type(num_inh) is not list:
-            num_inh = [num_inh] * self.num_layers
-        elif len(num_inh) != self.num_layers:
+        if 'num_inh' not in params_dict:
+            params_dict['num_inh'] = 0
+        if type(params_dict['num_inh']) is not list:
+            params_dict['num_inh'] = [params_dict['num_inh']] * self.num_layers
+        elif len(params_dict['num_inh']) != self.num_layers:
             raise ValueError('Invalid number of num_inh')
 
-        if type(pos_constraint) is not list:
-            pos_constraint = [pos_constraint] * self.num_layers
-        elif len(pos_constraint) != self.num_layers:
+        if 'pos_constraints' not in params_dict:
+            params_dict['pos_constraints'] = False
+        if type(params_dict['pos_constraints']) is not list:
+            params_dict['pos_constraints'] = [params_dict['pos_constraints']] * self.num_layers
+        elif len(params_dict['pos_constraints']) != self.num_layers:
             raise ValueError('Invalid number of pos_con')
 
-        network_params = {'layer_sizes':layer_sizes,
-                          'activation_funcs': activation_funcs,
-                          'weights_initializers': weights_initializer,
-                          'biases_initializers': biases_initializer,
-                          'reg_initializer': reg_initializer,
-                          'num_inh_list': num_inh,
-                          'pos_constraints':pos_constraint,
-                          'log_activations': log_activations }
+        if 'log_activations' not in params_dict:
+            params_dict['log_activations'] = False
 
+        if 'reg_initializer' not in params_dict:
+            params_dict['reg_initializers'] = [None]*self.num_layers
+
+        # Define network
         with tf.name_scope(self.scope):
-            self._define_network( inputs, network_params, additional_params )
+            self._define_network( inputs, params_dict )
 
-        if log_activations:
+        if params_dict['log_activations']:
             self.log = True
         else:
             self.log = False
     # END FFNetwork.__init__
 
-    def _define_network( self, inputs, network_params, additional_params=None ):
+    def _define_network( self, inputs, network_params ):
 
         layer_sizes = network_params['layer_sizes']
 
@@ -132,8 +142,8 @@ class FFNetwork(object):
                        activation_func = network_params['activation_funcs'][layer],
                        weights_initializer = network_params['weights_initializers'][layer],
                        biases_initializer = network_params['biases_initializers'][layer],
-                       reg_initializer = network_params['reg_initializer'],
-                       num_inh = network_params['num_inh_list'][layer],
+                       reg_initializer = network_params['reg_initializers'][layer],
+                       num_inh = network_params['num_inh'][layer],
                        pos_constraint = network_params['pos_constraints'][layer],
                        log_activations = network_params['log_activations'] ))
 

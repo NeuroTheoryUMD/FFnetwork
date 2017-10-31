@@ -123,6 +123,8 @@ class Layer(object):
             self.activation_func = tf.sigmoid
         elif activation_func == 'tanh':
             self.activation_func = tf.tanh
+        elif activation_func == 'lin':
+            self.activation_func = tf.identity
         elif activation_func == 'linear':
             self.activation_func = tf.identity
         elif activation_func == 'softplus':
