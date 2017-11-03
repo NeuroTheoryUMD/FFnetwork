@@ -115,7 +115,7 @@ class FFNetwork(object):
         if 'log_activations' not in params_dict:
             params_dict['log_activations'] = False
 
-        if 'reg_initializer' not in params_dict:
+        if 'reg_initializers' not in params_dict:
             params_dict['reg_initializers'] = [None]*self.num_layers
 
         # Define network
