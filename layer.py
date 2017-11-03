@@ -41,6 +41,7 @@ class Layer(object):
             scope=None,
             inputs=None,
             input_dims=None,  # this can be a list up to 3-dimensions
+            filter_dims=None,
             output_dims=None,
             activation_func='relu',
             weights_initializer='trunc_normal',
@@ -95,13 +96,11 @@ class Layer(object):
         #print(self.scope, 'Input Dims:', input_dims)
         #print(self.scope, 'Output Dims:', output_dims)
 
-        # Make input and output sizes explicit
+        # Make input, output, and filter sizes explicit
         if isinstance(input_dims,list):
             while len(input_dims) < 3:
                 input_dims.append(1)
-            num_inputs = input_dims[0]*input_dims[1]*input_dims[2]
         else:
-            num_inputs = input_dims
             input_dims = [input_dims,1,1]
         if isinstance(output_dims,list):
             while len(output_dims) < 3:
@@ -114,6 +113,10 @@ class Layer(object):
         self.input_dims = input_dims
         self.output_dims = output_dims
         self.num_filters = num_outputs  # this is default to have N filters for N outputs in base layer class
+        if filter_dims is None:
+            filter_dims = input_dims
+        num_inputs = filter_dims[0] * filter_dims[1] * filter_dims[2]
+
         #self.output_dims = output_dims
 
         # resolve activation function string
@@ -159,7 +162,7 @@ class Layer(object):
             self.log = False
 
         # Set up layer regularization
-        self.reg = Regularization(input_dims=input_dims,
+        self.reg = Regularization(input_dims=filter_dims,
                                   num_outputs=num_outputs, vals=reg_initializer)
 
         # Initialize weight values
@@ -223,6 +226,7 @@ class Layer(object):
 
     def _define_network( self, inputs, params_dict=None ):
         # push data through layer
+
         if self.pos_constraint:
             pre = tf.add(tf.matmul(inputs,
                                    tf.maximum(0.0, self.weights_var)),
@@ -241,7 +245,7 @@ class Layer(object):
         if self.log:
             tf.summary.histogram('act_pre', pre)
             tf.summary.histogram('act_post', post)
-    # END layer._build_layer
+    # END layer._define_network
 
     def assign_layer_params(self, sess):
         """Read weights/biases in numpy arrays into tf Variables"""
