@@ -39,9 +39,9 @@ def create_Tikhonov_matrix( stim_dims, reg_type, boundary_conditions=None ):
     ex = np.ones( [1,stim_dims[1]], dtype=np.float32 )
     ey = np.ones( [1,stim_dims[2]], dtype=np.float32 )
 
-    # Boundary conditions (currently not implemented
+    # Boundary conditions (currently not implemented)
     #if isinf(stim_params.boundary_conds(1)) # if temporal dim has free boundary
-    et[0, [0, -1]] = 0
+    #et[0, [0, -1]] = 0  # constrain temporal boundary to zero: all else are free
     #if isinf(stim_params.boundary_conds(2)) # if first spatial dim has free boundary
     ex[0, [0, -1]] = 0
     #if isinf(stim_params.boundary_conds(3)); # if second spatial dim has free boundary
