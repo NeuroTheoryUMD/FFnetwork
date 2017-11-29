@@ -28,7 +28,7 @@ class Regularization(object):
 
     """
 
-    _allowed_reg_types = ['l1', 'l2', 'd2t', 'd2x', 'd2xt', 'norm2']
+    _allowed_reg_types = ['l1', 'l2', 'd2t', 'd2x', 'd2xt', 'norm2', 'hadi1']
 
     def __init__(self, input_dims=None, num_outputs=None, vals=None):
         """Constructor for Regularization class
@@ -198,6 +198,10 @@ class Regularization(object):
                 self.vals_var['d2xt'],
                 tf.reduce_sum(tf.square(
                     tf.matmul(self.mats['d2xt'], weights))))
+        elif reg_type == 'hadi1':
+            reg_pen = tf.multiply(
+                self.vals_var['hadi1'],
+                tf.reduce_sum(tf.abs(weights)))  # this is currently just L1, but could be anything...
         else:
             reg_pen = tf.constant(0.0)
         return reg_pen
