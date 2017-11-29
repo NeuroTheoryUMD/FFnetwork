@@ -25,41 +25,55 @@ class Network(object):
     def _initialize_data_pipeline(self):
         """Define pipeline for feeding data into model"""
 
-        # placeholders for data
-        self.data_in_ph = tf.placeholder(
-            dtype=tf.float32,
-            shape=[self.num_examples, self.input_size],
-            name='input_ph')
-        self.data_out_ph = tf.placeholder(
-            dtype=tf.float32,
-            shape=[self.num_examples, self.output_size],
-            name='output_ph')
-
-        # turn placeholders into variables so they get put on GPU
-        self.data_in_var = tf.Variable(
-            self.data_in_ph,   # initializer for Variable
-            trainable=False,   # no GraphKeys.TRAINABLE_VARS
-            collections=[],    # no GraphKeys.GLOBAL_VARS
-            name='input_var')
-        self.data_out_var = tf.Variable(
-            self.data_out_ph,  # initializer for Variable
-            trainable=False,   # no GraphKeys.TRAINABLE_VARS
-            collections=[],    # no GraphKeys.GLOBAL_VARS
-            name='output_var')
-
-        # use selected subset of data
+        # define indices placeholder to specify subset of data
         self.indices = tf.placeholder(
             dtype=tf.int32,
             shape=None,
             name='indices_ph')
-        self.data_in_batch = [tf.gather(
-            self.data_in_var,
-            self.indices,
-            name='input_batch')]
-        self.data_out_batch = [tf.gather(
-            self.data_out_var,
-            self.indices,
-            name='output_batch')]
+
+        # INPUT DATA
+        self.data_in_ph = [None] * len(self.input_size)
+        self.data_in_var = [None] * len(self.input_size)
+        self.data_in_batch = [None] * len(self.input_size)
+        for i, input_size in enumerate(self.input_size):
+            # placeholders for data
+            self.data_in_ph[i] = tf.placeholder(
+                dtype=tf.float32,
+                shape=[self.num_examples, input_size],
+                name='input_ph_%02d' % i)
+            # turn placeholders into variables so they get put on GPU
+            self.data_in_var[i] = tf.Variable(
+                self.data_in_ph[i],  # initializer for Variable
+                trainable=False,     # no GraphKeys.TRAINABLE_VARS
+                collections=[],      # no GraphKeys.GLOBAL_VARS
+                name='input_var_%02d' % i)
+            # use selected subset of data
+            self.data_in_batch[i] = tf.gather(
+                self.data_in_var[i],
+                self.indices,
+                name='input_batch_%02d' % i)
+
+        # OUTPUT DATA
+        self.data_out_ph = [None] * len(self.output_size)
+        self.data_out_var = [None] * len(self.output_size)
+        self.data_out_batch = [None] * len(self.output_size)
+        for i, output_size in enumerate(self.output_size):
+            # placeholders for data
+            self.data_out_ph[i] = tf.placeholder(
+                dtype=tf.float32,
+                shape=[self.num_examples, output_size],
+                name='output_ph_%02d' % i)
+            # turn placeholders into variables so they get put on GPU
+            self.data_out_var[i] = tf.Variable(
+                self.data_out_ph[i],  # initializer for Variable
+                trainable=False,      # no GraphKeys.TRAINABLE_VARS
+                collections=[],       # no GraphKeys.GLOBAL_VARS
+                name='output_var_%02d' % i)
+            # use selected subset of data
+            self.data_out_batch[i] = tf.gather(
+                self.data_out_var[i],
+                self.indices,
+                name='output_batch_%02d' % i)
 
     def _define_loss(self):
         """Loss function that will be used to optimize model parameters"""
@@ -109,14 +123,17 @@ class Network(object):
         """Network training function
 
         Args:
-            input_data (time x input_dim numpy array): input to network
-            output_data (time x output_dim numpy array): desired output of 
-                network
+            input_data (list): input to network; each element should be a 
+                time x input_dim numpy array
+            output_data (list): desired output of network; each element should
+                be a time x output_dim numpy array
             train_indxs (numpy array, optional): subset of data to use for 
                 training
             test_indxs (numpy array, optional): subset of data to use for 
                 testing; if available these are used when displaying updates,
                 and are also the indices used for early stopping if enabled
+            layers_to_skip (list, optional)
+            biases_const (bool, optional)
             batch_size (int, optional): batch size used by the gradient
                 descent-based optimizers (adam).
             epochs_training (int, optional): number of epochs for gradient 
@@ -152,11 +169,18 @@ class Network(object):
         """
 
         # check input
-        if input_data.shape[0] != output_data.shape[0]:
-            raise ValueError('Input and output data must have matching ' +
-                             'number of examples')
-        if input_data.shape[0] != self.num_examples:
-            raise ValueError('Input/output data dims must match model values')
+        if type(input_data) is not list:
+            input_data = [input_data]
+        if type(output_data) is not list:
+            output_data = [output_data]
+        for temp_data in input_data:
+            if temp_data.shape[0] != self.num_examples:
+                raise ValueError(
+                    'Input data dims must match model values')
+        for temp_data in output_data:
+            if temp_data.shape[0] != self.num_examples:
+                raise ValueError(
+                    'Output data dims must match model values')
         if epochs_ckpt is not None and output_dir is None:
             raise ValueError('output_dir must be specified to save model')
         if epochs_summary is not None and output_dir is None:
@@ -464,11 +488,19 @@ class Network(object):
         # initialize all parameters randomly
         sess.run(self.init)
 
+        # check input
+        if type(input_data) is not list:
+            input_data = [input_data]
+        if type(output_data) is not list:
+            output_data = [output_data]
+
         # initialize input/output data
-        sess.run(self.data_in_var.initializer,
-                 feed_dict={self.data_in_ph: input_data})
-        sess.run(self.data_out_var.initializer,
-                 feed_dict={self.data_out_ph: output_data})
+        for i, temp_data in enumerate(input_data):
+            sess.run(self.data_in_var[i].initializer,
+                     feed_dict={self.data_in_ph[i]: temp_data})
+        for i, temp_data in enumerate(output_data):
+            sess.run(self.data_out_var[i].initializer,
+                     feed_dict={self.data_out_ph[i]: temp_data})
 
         # overwrite randomly initialized values of model with stored values
         self._assign_model_params(sess)
