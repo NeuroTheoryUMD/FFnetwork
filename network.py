@@ -52,14 +52,14 @@ class Network(object):
             dtype=tf.int32,
             shape=None,
             name='indices_ph')
-        self.data_in_batch = tf.gather(
+        self.data_in_batch = [tf.gather(
             self.data_in_var,
             self.indices,
-            name='input_batch')
-        self.data_out_batch = tf.gather(
+            name='input_batch')]
+        self.data_out_batch = [tf.gather(
             self.data_out_var,
             self.indices,
-            name='output_batch')
+            name='output_batch')]
 
     def _define_loss(self):
         """Loss function that will be used to optimize model parameters"""
