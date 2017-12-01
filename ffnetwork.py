@@ -20,7 +20,6 @@ class FFNetwork(object):
 
     def __init__(self,
                  scope=None,
-                 inputs=None,
                  params_dict=None ):
         """Constructor for FF-Network class
 
@@ -64,8 +63,8 @@ class FFNetwork(object):
         # check for required inputs
         if scope is None:
             raise TypeError('Must specify network scope')
-        if inputs is None:
-            raise TypeError('Must specify network input')
+        #if inputs is None:
+        #    raise TypeError('Must specify network input')
         if params_dict is None:
             raise TypeError('Must specify parameters dictionary.')
 
@@ -120,7 +119,7 @@ class FFNetwork(object):
 
         # Define network
         with tf.name_scope(self.scope):
-            self._define_network( inputs, params_dict )
+            self._define_network( params_dict )
 
         if params_dict['log_activations']:
             self.log = True
@@ -128,7 +127,7 @@ class FFNetwork(object):
             self.log = False
     # END FFNetwork.__init__
 
-    def _define_network( self, inputs, network_params ):
+    def _define_network( self, network_params ):
 
         layer_sizes = network_params['layer_sizes']
 
@@ -136,7 +135,6 @@ class FFNetwork(object):
         for layer in range(self.num_layers):
             self.layers.append(
                 Layer( scope='layer_%i' % layer,
-                       inputs=inputs,
                        input_dims = layer_sizes[layer],
                        output_dims = layer_sizes[layer + 1],
                        activation_func = network_params['activation_funcs'][layer],
@@ -146,11 +144,15 @@ class FFNetwork(object):
                        num_inh = network_params['num_inh'][layer],
                        pos_constraint = network_params['pos_constraints'][layer],
                        log_activations = network_params['log_activations'] ))
-
-            inputs = self.layers[-1].outputs
-
     # END FFNetwork._define_network
 
+    def build_graph(self, inputs, params_dict=None):
+
+        with tf.name_scope(self.scope):
+            for layer in range(self.num_layers):
+                self.layers[layer].build_graph(inputs, params_dict)
+                inputs = self.layers[layer].outputs
+    # END FFNetwork._build_graph
 
     def assign_model_params(self, sess):
         """Read weights/biases in numpy arrays into tf Variables"""

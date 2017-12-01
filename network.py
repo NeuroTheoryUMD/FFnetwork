@@ -15,8 +15,9 @@ class Network(object):
     _log_min = 1e-5  # constant to add to all arguments to logarithms
 
     def __init__(self):
-        """Constructor for Network class; model architecture should be defined
-        here"""
+        """Constructor for Network class; model architecture should be defined elsewhere"""
+
+        self.num_examples = 0
 
         # default: use cpu for training
         self.use_gpu = False
@@ -173,14 +174,13 @@ class Network(object):
             input_data = [input_data]
         if type(output_data) is not list:
             output_data = [output_data]
+        self.num_examples = input_data[0].shape[0]
         for temp_data in input_data:
             if temp_data.shape[0] != self.num_examples:
-                raise ValueError(
-                    'Input data dims must match model values')
+                raise ValueError('Input data dims must match across input_data.')
         for temp_data in output_data:
             if temp_data.shape[0] != self.num_examples:
-                raise ValueError(
-                    'Output data dims must match model values')
+                raise ValueError('Output data dims must match model values')
         if epochs_ckpt is not None and output_dir is None:
             raise ValueError('output_dir must be specified to save model')
         if epochs_summary is not None and output_dir is None:
@@ -190,6 +190,9 @@ class Network(object):
 
         if train_indxs is None:
             train_indxs = np.arange(self.num_examples)
+
+        # Build graph
+        self.build_graph()
 
         with tf.Session(graph=self.graph, config=self.sess_config) as sess:
 

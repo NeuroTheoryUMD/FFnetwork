@@ -49,8 +49,7 @@ class Layer(object):
             reg_initializer=None,
             num_inh=0,
             pos_constraint=False,
-            log_activations=False,
-            additional_params_dict=None ):
+            log_activations=False ):
         """Constructor for Layer class
 
         Args:
@@ -86,8 +85,8 @@ class Layer(object):
         # check for required inputs
         if scope is None:
             raise TypeError('Must specify layer scope')
-        if inputs is None:
-            raise TypeError('Must specify layer input')
+        #if inputs is None:
+        #    raise TypeError('Must specify layer input')
         if input_dims is None or output_dims is None:
             raise TypeError('Must specify both input and output dimensions')
 
@@ -116,6 +115,7 @@ class Layer(object):
         if filter_dims is None:
             filter_dims = input_dims
         num_inputs = filter_dims[0] * filter_dims[1] * filter_dims[2]
+        self.filter_dims = filter_dims
 
         #self.output_dims = output_dims
 
@@ -195,52 +195,57 @@ class Layer(object):
         # Initialize numpy array that will feed placeholder
         self.biases = init_biases.astype('float32')
 
-        # Build layer
-        with tf.name_scope(self.scope):
+        # Define tensorflow variables as placeholders
+        self.weights_ph = None
+        self.weights_var = None
+        self.biases_ph = None
+        self.biases_var = None
+        self.outputs = None
+        #self._define_network( inputs, additional_params_dict )
 
-            # initialize weights placeholder/variable
-            with tf.name_scope('weights_init'):
-                self.weights_ph = tf.placeholder_with_default(
-                    self.weights,
-                    shape=[num_inputs, num_outputs],
-                    name='weights_ph')
+    # END Layer.__init__
+
+    def _define_layer_variables(self):
+        # Define tensor-flow versions of variables (placeholder and variables)
+        with tf.name_scope('weights_init'):
+            self.weights_ph = tf.placeholder_with_default(
+                self.weights,
+                shape=self.weights.shape,
+                name='weights_ph')
             self.weights_var = tf.Variable(
                 self.weights_ph,
                 dtype=tf.float32,
                 name='weights_var')
 
-            # initialize biases placeholder/variable
-            with tf.name_scope('biases_init'):
-                self.biases_ph = tf.placeholder_with_default(
-                    self.biases,
-                    shape=[1, num_outputs],
-                    name='biases_ph')
+        # Initialize biases placeholder/variable
+        with tf.name_scope('biases_init'):
+            self.biases_ph = tf.placeholder_with_default(
+                self.biases,
+                shape=self.biases.shape,
+                name='biases_ph')
             self.biases_var = tf.Variable(
                 self.biases_ph,
                 dtype=tf.float32,
                 name='biases_var')
+    # END Layer._define_layer_variables
 
-            self._define_network( inputs, additional_params_dict )
+    def build_graph( self, inputs, params_dict=None ):
 
-    # END __init__
+        with tf.name_scope(self.scope):
+            self._define_layer_variables()
 
-    def _define_network( self, inputs, params_dict=None ):
-        # push data through layer
+            # Define computation
+            if self.pos_constraint:
+                pre = tf.add( tf.matmul(inputs, tf.maximum(0.0, self.weights_var)), self.biases_var)
+            else:
+                pre = tf.add(tf.matmul(inputs, self.weights_var), self.biases_var)
 
-        if self.pos_constraint:
-            pre = tf.add(tf.matmul(inputs,
-                                   tf.maximum(0.0, self.weights_var)),
-                         self.biases_var)
-        else:
-            pre = tf.add(tf.matmul(inputs, self.weights_var),
-                         self.biases_var)
+            if self.ei_mask_var is not None:
+                post = tf.multiply(self.activation_func(pre), self.ei_mask_var)
+            else:
+                post = self.activation_func(pre)
 
-        if self.ei_mask_var is not None:
-            post = tf.multiply(self.activation_func(pre), self.ei_mask_var)
-        else:
-            post = self.activation_func(pre)
-
-        self.outputs = post
+            self.outputs = post
 
         if self.log:
             tf.summary.histogram('act_pre', pre)
