@@ -25,11 +25,9 @@ class FFNetwork(object):
 
         Args:
             scope (str): name scope for network
-            inputs (tf Tensor or placeholder): input to network
             params_dict (dictionary): contains parameters about details of FFnetwork:
             -> layer_sizes (list of ints): list of layer sizes, including input and output.
-                all arguments (input size) can be up to a 3-dimensional list.
-                REQUIRED (NO DEFAULT)
+                all arguments (input size) can be up to a 3-dimensional list. REQUIRED (NO DEFAULT)
             -> num_inh: list or single number denoting number of inhibitory units in each
                 layer. This specifies the output of that number of units multiplied by -1
                 DEFAULT = 0 (and having any single value will be used for all layers)
@@ -63,8 +61,6 @@ class FFNetwork(object):
         # check for required inputs
         if scope is None:
             raise TypeError('Must specify network scope')
-        #if inputs is None:
-        #    raise TypeError('Must specify network input')
         if params_dict is None:
             raise TypeError('Must specify parameters dictionary.')
 
@@ -145,6 +141,18 @@ class FFNetwork(object):
                        pos_constraint = network_params['pos_constraints'][layer],
                        log_activations = network_params['log_activations'] ))
     # END FFNetwork._define_network
+
+    def _build_fit_variable_list( self, fit_parameter_list ):
+        """makes a list of variables of this network that will be fit given argument"""
+
+        var_list = []
+        for layer in range(self.num_layers):
+            if fit_parameter_list[layer]["weights"]:
+                var_list.append( self.layers[layer].weights_var )
+            if fit_parameter_list[layer]["biases"]:
+                var_list.append( self.layers[layer].biases_var )
+        return var_list
+    # END FFNetwork._build_fit_variable_list
 
     def build_graph(self, inputs, params_dict=None):
 
