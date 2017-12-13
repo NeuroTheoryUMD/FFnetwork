@@ -146,11 +146,6 @@ class Layer(object):
         if num_inh > num_outputs:
             raise ValueError('Too many inhibitory units designated')
         self.ei_mask = [1] * (num_outputs - num_inh) + [-1] * num_inh
-        if num_inh > 0:
-            self.ei_mask_var = tf.constant(
-                self.ei_mask, dtype=tf.float32, name='ei_mask')
-        else:
-            self.ei_mask_var = None
 
         # save positivity constraint on weights
         self.pos_constraint = pos_constraint
@@ -227,6 +222,14 @@ class Layer(object):
                 self.biases_ph,
                 dtype=tf.float32,
                 name='biases_var')
+
+        # Check for need of ei_mask
+        if np.sum(self.ei_mask) < len(self.ei_mask):
+            self.ei_mask_var = tf.constant(
+                self.ei_mask, dtype=tf.float32, name='ei_mask')
+        else:
+            self.ei_mask_var = None
+
     # END Layer._define_layer_variables
 
     def build_graph( self, inputs, params_dict=None ):
