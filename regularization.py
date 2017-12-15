@@ -5,7 +5,8 @@ from __future__ import division
 
 import numpy as np
 import tensorflow as tf
-import FFnetwork.create_Tikhonov_matrix as makeRmats
+import FFnetwork.create_Tikhonov_matrix as makeTmats
+import FFnetwork.create_maxpenalty_matrix as makeMmats
 
 class Regularization(object):
     """Class for handling layer-wise regularization
@@ -28,13 +29,14 @@ class Regularization(object):
 
     """
 
-    _allowed_reg_types = ['l1', 'l2', 'd2t', 'd2x', 'd2xt', 'norm2', 'hadi1']
+    _allowed_reg_types = ['l1', 'l2', 'd2t', 'd2x', 'd2xt', 'norm2', 'max', 'max_filt', 'max_space', 'hadi1']
 
     def __init__(self, input_dims=None, num_outputs=None, vals=None):
         """Constructor for Regularization class
         
         Args:
-            num_inputs (int): dimension of input size (for building reg mats)
+            input_dims (int): dimension of input size (for building reg mats)
+            num_outputs (int): number of outputs (for normalization in norm2)
             vals (dict, optional): key-value pairs specifying value for each
                 type of regularization 
 
@@ -120,6 +122,7 @@ class Regularization(object):
 
     def define_reg_loss(self, weights):
         """Define regularization loss in default tf Graph"""
+
         reg_loss = []
         # loop through all types of regularization
         for reg_type, reg_val in self.vals.iteritems():
@@ -157,10 +160,13 @@ class Regularization(object):
             reg_type (str): see `allowed_reg_types` for options
 
         """
-        filter_size = self.input_dims[0]*self.input_dims[1]*self.input_dims[2]
+        #filter_size = self.input_dims[0]*self.input_dims[1]*self.input_dims[2]
         if reg_type in ['d2t','d2x','d2xt']:
-            reg_mat = makeRmats.create_Tikhonov_matrix( self.input_dims, reg_type )
+            reg_mat = makeTmats.create_Tikhonov_matrix( self.input_dims, reg_type )
             name = reg_type + '_laplacian'
+        elif reg_type in ['max','max_filt','max_space']:
+            reg_mat = makeMmats.create_maxpenalty_matrix( self.input_dims, reg_type )
+            name = reg_type + '_reg'
         else:
             reg_mat = 0.0
             name = 'lp_placeholder'
@@ -183,6 +189,21 @@ class Regularization(object):
             reg_pen = tf.multiply(
                 self.vals_var['norm2'],
                 tf.square(tf.reduce_sum(tf.square(weights))-self.num_outputs))
+        elif reg_type == 'max':
+            w2 = tf.square(weights)
+            reg_pen = tf.multiply(
+                self.vals_var['max'],
+                tf.trace( tf.matmul( w2, tf.matmul(self.mats['max'], w2), transpose_a=True )) )
+        elif reg_type == 'max_space':
+            w2 = tf.square(weights)
+            reg_pen = tf.multiply(
+                self.vals_var['max_space'],
+                tf.trace(tf.matmul(w2, tf.matmul(self.mats['max_space'], w2), transpose_a=True)))
+        elif reg_type == 'max_filt':
+            w2 = tf.square(weights)
+            reg_pen = tf.multiply(
+                self.vals_var['max_filt'],
+                tf.trace(tf.matmul(w2, tf.matmul(self.mats['max_filt'], w2), transpose_a=True)))
         elif reg_type == 'd2t':
             reg_pen = tf.multiply(
                 self.vals_var['d2t'],
