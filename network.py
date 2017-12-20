@@ -20,10 +20,6 @@ class Network(object):
 
         self.num_examples = 0
 
-        # default: use cpu for training
-        self.use_gpu = False
-        self.sess_config = tf.ConfigProto(device_count={'GPU': 0})
-
     def _initialize_data_pipeline(self):
         """Define pipeline for feeding data into model"""
 
@@ -205,11 +201,8 @@ class Network(object):
         if train_indxs is None:
             train_indxs = np.arange(self.num_examples)
 
-        # Define optimization-specific things
-        self.use_gpu = use_gpu
-
         # Build graph
-        self.build_graph( learning_alg, learning_rate )
+        self._build_graph( learning_alg, learning_rate, use_gpu )
 
         with tf.Session(graph=self.graph, config=self.sess_config) as sess:
 
@@ -246,8 +239,9 @@ class Network(object):
                 train_writer = None
                 test_writer = None
 
-            # Generate fit_parameter_list for fitting if fit_parameter_list (if relevant)
-            var_list = self._build_fit_variable_list( fit_parameter_list )
+            # Generate fit_parameter_list for fitting if fit_parameter_list
+            # (if relevant)
+            var_list = self._build_fit_variable_list(fit_parameter_list)
 
             with tf.variable_scope('optimizer'):
                 self._define_optimizer(var_list)
@@ -337,19 +331,19 @@ class Network(object):
                 cost = sess.run(
                     self.cost,
                     feed_dict={self.indices: train_indxs_perm})
-                r2s, _ = self._get_r2s(sess, train_indxs_perm)
+                # r2s, _ = self._get_r2s(sess, train_indxs_perm)
                 print('\nEpoch %03d:' % epoch)
                 print('   train cost = %2.5f' % cost)
-                print('   train r2 = %1.4f' % np.mean(r2s))
+                # print('   train r2 = %1.4f' % np.mean(r2s))
 
                 # print additional testing info
                 if test_indxs is not None:
                     cost_test = sess.run(
                         self.cost,
                         feed_dict={self.indices: test_indxs})
-                    r2s_test, _ = self._get_r2s(sess, test_indxs)
+                    # r2s_test, _ = self._get_r2s(sess, test_indxs)
                     print('   test cost = %2.5f' % cost_test)
-                    print('   test r2 = %1.4f' % np.mean(r2s_test))
+                    # print('   test r2 = %1.4f' % np.mean(r2s_test))
 
             # save model checkpoints
             if epochs_ckpt is not None and \
