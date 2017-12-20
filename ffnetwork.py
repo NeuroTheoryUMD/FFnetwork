@@ -12,7 +12,7 @@ class FFNetwork(object):
 
     Attributes:
         scope (str): name scope for network
-        layers (list of Layer objects): layers of network
+        layers (list of `Layer` objects): layers of network
         num_layers (int): number of layers in network (not including input)
         log (bool): use tf summary writers in layer activations
 
@@ -20,14 +20,15 @@ class FFNetwork(object):
 
     def __init__(self,
                  scope=None,
-                 params_dict=None ):
-        """Constructor for FF-Network class
+                 params_dict=None):
+        """Constructor for FFNetwork class
 
         Args:
             scope (str): name scope for network
-            params_dict (dictionary): contains parameters about details of FFnetwork:
-            -> layer_sizes (list of ints): list of layer sizes, including input and output.
-                all arguments (input size) can be up to a 3-dimensional list. REQUIRED (NO DEFAULT)
+            params_dict (dict): contains parameters about details of FFnetwork:
+            -> layer_sizes (list of ints): list of layer sizes, including input 
+                and output. All arguments (input size) can be up to a 
+                3-dimensional list. REQUIRED (NO DEFAULT)
             -> num_inh: list or single number denoting number of inhibitory units in each
                 layer. This specifies the output of that number of units multiplied by -1
                 DEFAULT = 0 (and having any single value will be used for all layers)
@@ -75,21 +76,24 @@ class FFNetwork(object):
         if 'activation_funcs' not in params_dict:
             params_dict['activation_funcs'] = 'relu'
         if type(params_dict['activation_funcs']) is not list:
-            params_dict['activation_funcs'] = [params_dict['activation_funcs']] * self.num_layers
+            params_dict['activation_funcs'] = \
+                [params_dict['activation_funcs']] * self.num_layers
         elif len(params_dict['activation_funcs']) != self.num_layers:
             raise ValueError('Invalid number of activation_funcs')
 
         if 'weights_initializers' not in params_dict:
             params_dict['weights_initializers'] = 'trunc_normal'
         if type(params_dict['weights_initializers']) is not list:
-            params_dict['weights_initializers'] = [params_dict['weights_initializers']] * self.num_layers
+            params_dict['weights_initializers'] = \
+                [params_dict['weights_initializers']] * self.num_layers
         elif len(params_dict['weights_initializers']) != self.num_layers:
             raise ValueError('Invalid number of weights_initializer')
 
         if 'biases_initializers' not in params_dict:
             params_dict['biases_initializers'] = 'zeros'
         if type(params_dict['biases_initializers']) is not list:
-            params_dict['biases_initializers'] = [params_dict['biases_initializers']] * self.num_layers
+            params_dict['biases_initializers'] = \
+                [params_dict['biases_initializers']] * self.num_layers
         elif len(params_dict['biases_initializers']) != self.num_layers:
             raise ValueError('Invalid number of biases_initializer')
 
@@ -103,7 +107,8 @@ class FFNetwork(object):
         if 'pos_constraints' not in params_dict:
             params_dict['pos_constraints'] = False
         if type(params_dict['pos_constraints']) is not list:
-            params_dict['pos_constraints'] = [params_dict['pos_constraints']] * self.num_layers
+            params_dict['pos_constraints'] = \
+                [params_dict['pos_constraints']] * self.num_layers
         elif len(params_dict['pos_constraints']) != self.num_layers:
             raise ValueError('Invalid number of pos_con')
 
@@ -115,7 +120,7 @@ class FFNetwork(object):
 
         # Define network
         with tf.name_scope(self.scope):
-            self._define_network( params_dict )
+            self._define_network(params_dict)
 
         if params_dict['log_activations']:
             self.log = True
@@ -123,26 +128,26 @@ class FFNetwork(object):
             self.log = False
     # END FFNetwork.__init__
 
-    def _define_network( self, network_params ):
+    def _define_network(self, network_params):
 
         layer_sizes = network_params['layer_sizes']
 
         self.layers = []
         for layer in range(self.num_layers):
-            self.layers.append(
-                Layer( scope='layer_%i' % layer,
-                       input_dims = layer_sizes[layer],
-                       output_dims = layer_sizes[layer + 1],
-                       activation_func = network_params['activation_funcs'][layer],
-                       weights_initializer = network_params['weights_initializers'][layer],
-                       biases_initializer = network_params['biases_initializers'][layer],
-                       reg_initializer = network_params['reg_initializers'][layer],
-                       num_inh = network_params['num_inh'][layer],
-                       pos_constraint = network_params['pos_constraints'][layer],
-                       log_activations = network_params['log_activations'] ))
+            self.layers.append(Layer(
+                scope='layer_%i' % layer,
+                input_dims=layer_sizes[layer],
+                output_dims=layer_sizes[layer + 1],
+                activation_func=network_params['activation_funcs'][layer],
+                weights_initializer=network_params['weights_initializers'][layer],
+                biases_initializer=network_params['biases_initializers'][layer],
+                reg_initializer=network_params['reg_initializers'][layer],
+                num_inh=network_params['num_inh'][layer],
+                pos_constraint=network_params['pos_constraints'][layer],
+                log_activations=network_params['log_activations']))
     # END FFNetwork._define_network
 
-    def _build_fit_variable_list( self, fit_parameter_list ):
+    def _build_fit_variable_list(self, fit_parameter_list):
         """makes a list of variables of this network that will be fit given argument"""
 
         var_list = []

@@ -16,7 +16,9 @@ class Network(object):
     _log_min = 1e-5  # constant to add to all arguments to logarithms
 
     def __init__(self):
-        """Constructor for Network class; model architecture should be defined elsewhere"""
+        """Constructor for Network class; model architecture should be defined
+        elsewhere
+        """
 
         self.num_examples = 0
 
@@ -103,9 +105,8 @@ class Network(object):
             fit_parameter_list=None,
             learning_alg='adam',
             learning_rate=1e-3,
-            use_batches=False,
             use_gpu=False,
-            batch_size=100,
+            batch_size=128,
             epochs_training=10000,
             epochs_disp=None,
             epochs_ckpt=None,
@@ -133,11 +134,7 @@ class Network(object):
                 ['lbfgs'] | 'adam'
             learning_rate (float, optional): learning rate used by the
                 gradient descent-based optimizers ('adam'). Default is 1e-3.
-            use_batches (boolean, optional): determines how data is fed to
-                model; if False, all data is pinned to variables used
-                throughout fitting; if True, a data slicer and batcher are
-                constructed to feed the model shuffled batches throughout
-                training
+            use_gpu (bool):
             batch_size (int, optional): batch size used by the gradient
                 descent-based optimizers (adam).
             epochs_training (int, optional): number of epochs for gradient 
@@ -152,8 +149,6 @@ class Network(object):
                 network summary information
             early_stop (bool, optional): if True, training exits when the
                 cost function evaluated on test_indxs begins to increase
-            redo_graph (bool, optional): will perform manual rebuild of graph, which
-                is automatic if <biases_const> or <layers_to_skip> is used
             output_dir (str, optional): absolute path for saving checkpoint
                 files and summary files; must be present if either epochs_ckpt  
                 or epochs_summary is not 'None'. If `output_dir` is not 'None',
@@ -195,11 +190,13 @@ class Network(object):
             train_indxs = np.arange(self.num_examples)
 
         # Build graph
-        self._build_graph( learning_alg, learning_rate, use_gpu )
+        self._build_graph(learning_alg, learning_rate, use_gpu)
 
         with tf.Session(graph=self.graph, config=self.sess_config) as sess:
 
             # handle output directories
+            train_writer = None
+            test_writer = None
             if output_dir is not None:
 
                 # remake checkpoint directory
@@ -228,10 +225,6 @@ class Network(object):
                     test_writer = tf.summary.FileWriter(
                         summary_dir_test, sess.graph)
 
-            else:
-                train_writer = None
-                test_writer = None
-
             # Generate fit_parameter_list for fitting if fit_parameter_list
             # (if relevant)
             var_list = self._build_fit_variable_list(fit_parameter_list)
@@ -250,7 +243,6 @@ class Network(object):
                     test_writer=test_writer,
                     train_indxs=train_indxs,
                     test_indxs=test_indxs,
-                    use_batches=use_batches,
                     batch_size=batch_size,
                     epochs_training=epochs_training,
                     epochs_disp=epochs_disp,
@@ -280,7 +272,6 @@ class Network(object):
             test_writer=None,
             train_indxs=None,
             test_indxs=None,
-            use_batches=False,
             batch_size=None,
             epochs_training=None,
             epochs_disp=None,
@@ -291,11 +282,7 @@ class Network(object):
             output_dir=None):
         """Training function for adam optimizer to clean up code in `train`"""
 
-        if use_batches:
-            num_batches = train_indxs.shape[0] // batch_size
-        else:
-            batch_size = train_indxs.shape[0]
-            num_batches = 1
+        num_batches = train_indxs.shape[0] // batch_size
 
         if early_stop:
             prev_cost = float('Inf')
@@ -324,19 +311,15 @@ class Network(object):
                 cost = sess.run(
                     self.cost,
                     feed_dict={self.indices: train_indxs_perm})
-                # r2s, _ = self._get_r2s(sess, train_indxs_perm)
                 print('\nEpoch %03d:' % epoch)
                 print('   train cost = %2.5f' % cost)
-                # print('   train r2 = %1.4f' % np.mean(r2s))
 
                 # print additional testing info
                 if test_indxs is not None:
                     cost_test = sess.run(
                         self.cost,
                         feed_dict={self.indices: test_indxs})
-                    # r2s_test, _ = self._get_r2s(sess, test_indxs)
                     print('   test cost = %2.5f' % cost_test)
-                    # print('   test r2 = %1.4f' % np.mean(r2s_test))
 
             # save model checkpoints
             if epochs_ckpt is not None and \
@@ -401,77 +384,6 @@ class Network(object):
 
         return epoch
     # END _train_adam
-
-    def _get_r2s(self, sess, data_indxs=None):
-        """Transform a given input into its reconstruction 
-
-        Args:
-            sess (tf.Session object): current session object to run graph
-            data_indxs (numpy array, optional): indexes of data to use in 
-                calculating forward pass; if not supplied, all data is used             
-
-        Returns:
-            r2s (1 x num_cells numpy array): pseudo-r2 values for each cell
-            lls (dict): contains log-likelihoods for fitted model, null model 
-                (prediction is mean), and saturated model (prediction is true
-                activity) for each cell
-
-        Raises:
-            ValueError: If both input and output data are not provided
-            ValueError: If input/output time dims don't match
-
-        """
-
-        if data_indxs is None:
-            data_indxs = np.arange(self.num_examples)
-
-        data_in = sess.run(
-            self.data_in_batch,
-            feed_dict={self.indices: data_indxs})
-        data_out = sess.run(
-            self.data_out_batch,
-            feed_dict={self.indices: data_indxs})
-        pred = sess.run(
-            self.network.layers[-1].outputs,
-            feed_dict={self.indices: data_indxs})
-
-        t, num_cells = data_in.shape
-        mean_act = np.tile(np.mean(data_out, axis=0), (t, 1))
-
-        if self.noise_dist == 'gaussian':
-
-            ll = np.sum(np.square(data_out - pred), axis=0)
-            ll_null = np.sum(np.square(data_out - mean_act), axis=0)
-            ll_sat = 0.0
-
-        elif self.noise_dist == 'poisson':
-
-            ll = -np.sum(
-                np.multiply(data_out, np.log(self._log_min + pred))
-                - pred, axis=0)
-            ll_null = -np.sum(
-                np.multiply(data_out, np.log(self._log_min + mean_act))
-                - mean_act, axis=0)
-            ll_sat = np.multiply(data_out, np.log(self._log_min + data_out))
-            ll_sat = -np.sum(ll_sat - data_out, axis=0)
-
-        elif self.noise_dist == 'bernoulli':
-
-            ll_sat = 1.0
-            ll_null = 0.0
-            ll = 0.0
-
-        r2s = 1.0 - np.divide(ll_sat - ll, ll_sat - ll_null)
-        r2s[ll_sat == ll_null] = 1.0
-
-        lls = {
-            'll': ll,
-            'll_null': ll_null,
-            'll_sat': ll_sat
-        }
-
-        return r2s, lls
-    # END _get_r2s
 
     def _restore_params(self, sess, input_data, output_data):
         """Restore model parameters from numpy matrices and update

@@ -1,0 +1,1 @@
+This repository contains object-oriented code for constructing simple feedforward neural networks in Tensorflow. See the [NeuroTheoryUMD](https://github.com/NeuroTheoryUMD/) page for examples of its use. 

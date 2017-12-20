@@ -3,10 +3,10 @@
 from __future__ import print_function
 from __future__ import division
 
-import numpy as np
 import tensorflow as tf
 import FFnetwork.create_Tikhonov_matrix as makeTmats
 import FFnetwork.create_maxpenalty_matrix as makeMmats
+
 
 class Regularization(object):
     """Class for handling layer-wise regularization
@@ -22,14 +22,16 @@ class Regularization(object):
             tf constants
         penalties (dict): tf ops for evaluating different regularization 
             penalties
-        num_inputs (int): dimension of layer input size; for constructing reg 
+        input_dims (list): dimensions of layer input size; for constructing reg 
             matrices
-        num_outputs (int): dimension of layer output size; for generating target
-            weights in norm2
+        num_outputs (int): dimension of layer output size; for generating 
+            target weights in norm2
 
     """
 
-    _allowed_reg_types = ['l1', 'l2', 'd2t', 'd2x', 'd2xt', 'norm2', 'max', 'max_filt', 'max_space', 'hadi1']
+    _allowed_reg_types = ['l1', 'l2', 'norm2',
+                          'd2t', 'd2x', 'd2xt',
+                          'max', 'max_filt', 'max_space', 'hadi1']
 
     def __init__(self, input_dims=None, num_outputs=None, vals=None):
         """Constructor for Regularization class
@@ -41,7 +43,8 @@ class Regularization(object):
                 type of regularization 
 
         Raises:
-            TypeError: If `num_inputs` is not specified
+            TypeError: If `input_dims` is not specified
+            TypeError: If `num_outputs` is not specified
             
         """
 
@@ -49,12 +52,12 @@ class Regularization(object):
 
         # check input
         if input_dims is None:
-            raise TypeError('Must specify `num_inputs`')
+            raise TypeError('Must specify `input_dims`')
         if num_outputs is None:
             raise TypeError('Must specify `num_outputs`')
 
-        if isinstance(input_dims,list) is False:
-            input_dims = [input_dims,1,1]
+        if isinstance(input_dims, list) is False:
+            input_dims = [input_dims, 1, 1]
 
         self.input_dims = input_dims
         self.num_outputs = num_outputs
@@ -84,7 +87,7 @@ class Regularization(object):
             reg_val (float): value of regularization parameter
             
         Returns:
-            new_reg_type (bool): True if `reg_type` has not been previously set
+            bool: True if `reg_type` has not been previously set
             
         Raises:
             ValueError: If `reg_type` is not a valid regularization type
@@ -157,15 +160,17 @@ class Regularization(object):
         """Build regularization matrices in default tf Graph
 
         Args:
-            reg_type (str): see `allowed_reg_types` for options
+            reg_type (str): see `_allowed_reg_types` for options
 
         """
-        #filter_size = self.input_dims[0]*self.input_dims[1]*self.input_dims[2]
-        if reg_type in ['d2t','d2x','d2xt']:
-            reg_mat = makeTmats.create_Tikhonov_matrix( self.input_dims, reg_type )
+
+        if reg_type in ['d2t', 'd2x', 'd2xt']:
+            reg_mat = makeTmats.create_Tikhonov_matrix(
+                self.input_dims, reg_type)
             name = reg_type + '_laplacian'
-        elif reg_type in ['max','max_filt','max_space']:
-            reg_mat = makeMmats.create_maxpenalty_matrix( self.input_dims, reg_type )
+        elif reg_type in ['max', 'max_filt', 'max_space']:
+            reg_mat = makeMmats.create_maxpenalty_matrix(
+                self.input_dims, reg_type)
             name = reg_type + '_reg'
         else:
             reg_mat = 0.0
@@ -193,17 +198,23 @@ class Regularization(object):
             w2 = tf.square(weights)
             reg_pen = tf.multiply(
                 self.vals_var['max'],
-                tf.trace( tf.matmul( w2, tf.matmul(self.mats['max'], w2), transpose_a=True )) )
+                tf.trace(tf.matmul(
+                    w2,
+                    tf.matmul(self.mats['max'], w2), transpose_a=True)))
         elif reg_type == 'max_space':
             w2 = tf.square(weights)
             reg_pen = tf.multiply(
                 self.vals_var['max_space'],
-                tf.trace(tf.matmul(w2, tf.matmul(self.mats['max_space'], w2), transpose_a=True)))
+                tf.trace(tf.matmul(
+                    w2,
+                    tf.matmul(self.mats['max_space'], w2), transpose_a=True)))
         elif reg_type == 'max_filt':
             w2 = tf.square(weights)
             reg_pen = tf.multiply(
                 self.vals_var['max_filt'],
-                tf.trace(tf.matmul(w2, tf.matmul(self.mats['max_filt'], w2), transpose_a=True)))
+                tf.trace(tf.matmul(
+                    w2,
+                    tf.matmul(self.mats['max_filt'], w2), transpose_a=True)))
         elif reg_type == 'd2t':
             reg_pen = tf.multiply(
                 self.vals_var['d2t'],
@@ -220,9 +231,10 @@ class Regularization(object):
                 tf.reduce_sum(tf.square(
                     tf.matmul(self.mats['d2xt'], weights))))
         elif reg_type == 'hadi1':
+            # currently just L1, but could be anything...
             reg_pen = tf.multiply(
                 self.vals_var['hadi1'],
-                tf.reduce_sum(tf.abs(weights)))  # this is currently just L1, but could be anything...
+                tf.reduce_sum(tf.abs(weights)))
         else:
             reg_pen = tf.constant(0.0)
         return reg_pen
@@ -242,11 +254,14 @@ class Regularization(object):
 
         return reg_dict
 
-    def reg_copy( self ):
+    # END _calc_reg_penalty
+
+    def reg_copy(self):
         """Copy regularization to new structure"""
 
-        reg_target = Regularization(input_dims=self.input_dims,
-                                    num_outputs=self.num_outputs )
+        reg_target = Regularization(
+            input_dims=self.input_dims,
+            num_outputs=self.num_outputs)
         reg_target.vals = self.vals
         reg_target.mats = self.mats
 

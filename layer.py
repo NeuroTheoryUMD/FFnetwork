@@ -13,8 +13,8 @@ class Layer(object):
 
     Attributes:
         scope (str): name scope for variables and operations in layer
-        num_inputs (int): number of inputs to layer
-        num_outputs (int): number of outputs of layer
+        input_dims (list): inputs to layer
+        output_dims (list): outputs of layer
         outputs (tf Tensor): output of layer
         num_inh (int): number of inhibitory units in layer
         weights_ph (tf placeholder): placeholder for weights in layer
@@ -39,7 +39,6 @@ class Layer(object):
     def __init__(
             self,
             scope=None,
-            inputs=None,
             input_dims=None,  # this can be a list up to 3-dimensions
             filter_dims=None,
             output_dims=None,
@@ -49,28 +48,27 @@ class Layer(object):
             reg_initializer=None,
             num_inh=0,
             pos_constraint=False,
-            log_activations=False ):
+            log_activations=False):
         """Constructor for Layer class
 
         Args:
             scope (str): name scope for variables and operations in layer
-            inputs (tf Tensor or placeholder): input to layer
             input_dims (int or list): dimensions of input data
             output_dims (int or list): dimensions of output data
             activation_func (str, optional): pointwise function applied to  
                 output of affine transformation
-                ['relu'] | 'sigmoid' | 'tanh' | 'identity' | 'softplus' | 'elu' | 'quad'
+                ['relu'] | 'sigmoid' | 'tanh' | 'identity' | 'softplus' | 
+                'elu' | 'quad'
             weights_initializer (str, optional): initializer for the weights
                 ['trunc_normal'] | 'normal' | 'zeros'
             biases_initializer (str, optional): initializer for the biases
                 'trunc_normal' | 'normal' | ['zeros']
             reg_initializer (dict, optional): see Regularizer docs for info
             num_inh (int, optional): number of inhibitory units in layer
-            pos_constraint (bool, optional): True to constrain layer weights to be 
-                positive
-            log_activations (bool, optional): True to use tf.summary on layer activations
-            additional_params_dict (dictionary, optional): for use with layer children
-                and passed into graph build
+            pos_constraint (bool, optional): True to constrain layer weights to 
+                be positive
+            log_activations (bool, optional): True to use tf.summary on layer 
+                activations
 
         Raises:
             TypeError: If `variable_scope` is not specified
@@ -82,18 +80,14 @@ class Layer(object):
             ValueError: If `biases_initializer` is not a valid string
 
         """
+
         # check for required inputs
         if scope is None:
             raise TypeError('Must specify layer scope')
-        #if inputs is None:
-        #    raise TypeError('Must specify layer input')
         if input_dims is None or output_dims is None:
             raise TypeError('Must specify both input and output dimensions')
 
         self.scope = scope
-
-        #print(self.scope, 'Input Dims:', input_dims)
-        #print(self.scope, 'Output Dims:', output_dims)
 
         # Make input, output, and filter sizes explicit
         if isinstance(input_dims,list):
@@ -111,13 +105,12 @@ class Layer(object):
 
         self.input_dims = input_dims
         self.output_dims = output_dims
-        self.num_filters = num_outputs  # this is default to have N filters for N outputs in base layer class
+        # default to have N filts for N outputs in base layer class
+        self.num_filters = num_outputs
         if filter_dims is None:
             filter_dims = input_dims
         num_inputs = filter_dims[0] * filter_dims[1] * filter_dims[2]
         self.filter_dims = filter_dims
-
-        #self.output_dims = output_dims
 
         # resolve activation function string
         if activation_func == 'relu':
@@ -157,8 +150,10 @@ class Layer(object):
             self.log = False
 
         # Set up layer regularization
-        self.reg = Regularization(input_dims=filter_dims,
-                                  num_outputs=num_outputs, vals=reg_initializer)
+        self.reg = Regularization(
+            input_dims=filter_dims,
+            num_outputs=num_outputs,
+            vals=reg_initializer)
 
         # Initialize weight values
         weight_dims = (num_inputs, num_outputs)
@@ -196,7 +191,6 @@ class Layer(object):
         self.biases_ph = None
         self.biases_var = None
         self.outputs = None
-        #self._define_network( inputs, additional_params_dict )
 
     # END Layer.__init__
 
@@ -232,16 +226,19 @@ class Layer(object):
 
     # END Layer._define_layer_variables
 
-    def build_graph( self, inputs, params_dict=None ):
+    def build_graph(self, inputs, params_dict=None):
 
         with tf.name_scope(self.scope):
             self._define_layer_variables()
 
             # Define computation
             if self.pos_constraint:
-                pre = tf.add( tf.matmul(inputs, tf.maximum(0.0, self.weights_var)), self.biases_var)
+                pre = tf.add(tf.matmul(
+                    inputs,
+                    tf.maximum(0.0, self.weights_var)), self.biases_var)
             else:
-                pre = tf.add(tf.matmul(inputs, self.weights_var), self.biases_var)
+                pre = tf.add(
+                    tf.matmul(inputs, self.weights_var), self.biases_var)
 
             if self.ei_mask_var is not None:
                 post = tf.multiply(self.activation_func(pre), self.ei_mask_var)
