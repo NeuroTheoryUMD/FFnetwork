@@ -77,28 +77,21 @@ class Network(object):
         """Loss function that will be used to optimize model parameters"""
         raise NotImplementedError
 
-    def _define_optimizer(self, learning_alg='adam', learning_rate=1e-3, var_list=None):
+    def _define_optimizer(self, learning_alg='adam', learning_rate=1e-3,
+                          var_list=None):
         """Define one step of the optimization routine"""
 
         if learning_alg == 'adam':
             self.train_step = tf.train.AdamOptimizer(learning_rate). \
-                minimize(self.cost_penalized)
+                minimize(self.cost_penalized, var_list=var_list)
         elif learning_alg == 'lbfgs':
-            if var_list is None:
-                self.train_step = tf.contrib.opt.ScipyOptimizerInterface(
-                    self.cost_penalized,
-                    method='L-BFGS-B',
-                    options={
-                        'maxiter': 10000,
-                        'disp': False})
-            else:
-                self.train_step = tf.contrib.opt.ScipyOptimizerInterface(
-                    self.cost_penalized,
-                    var_list=var_list,
-                    method='L-BFGS-B',
-                    options={
-                        'maxiter': 10000,
-                        'disp': False})
+            self.train_step = tf.contrib.opt.ScipyOptimizerInterface(
+                self.cost_penalized,
+                var_list=var_list,
+                method='L-BFGS-B',
+                options={
+                    'maxiter': 10000,
+                    'disp': False})
     # END _define_optimizer
 
     def train(
