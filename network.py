@@ -103,7 +103,7 @@ class Network(object):
             train_indxs=None,
             test_indxs=None,
             fit_parameter_list=None,
-            learning_alg='adam',
+            learning_alg='lbfgs',
             learning_rate=1e-3,
             use_gpu=False,
             batch_size=128,
@@ -189,7 +189,7 @@ class Network(object):
         if train_indxs is None:
             train_indxs = np.arange(self.num_examples)
 
-        # Build graph
+        # Build graph: self.build_graph must be defined in child of network
         self._build_graph(learning_alg, learning_rate, use_gpu)
 
         with tf.Session(graph=self.graph, config=self.sess_config) as sess:
@@ -253,8 +253,7 @@ class Network(object):
                     output_dir=output_dir)
             elif learning_alg == 'lbfgs':
                 self.train_step.minimize(
-                    sess,
-                    feed_dict={self.indices: train_indxs})
+                    sess, feed_dict={self.indices: train_indxs})
                 epoch = float('NaN')
             else:
                 raise ValueError('Invalid learning algorithm')
