@@ -1,6 +1,6 @@
+from __future__ import division
 import numpy as np
 import scipy.sparse as sp
-from __future__ import division
 
 def create_maxpenalty_matrix( input_dims, reg_type ):
     """
@@ -51,7 +51,7 @@ def create_maxpenalty_matrix( input_dims, reg_type ):
         
     elif reg_type is 'centralizer1':
         for i in range(NK):
-            rmat[i, i] = (i//input_dims[0] - num_pix/2 + 0.5)**2
+            rmat[i, i] = np.power(i//input_dims[0] - num_pix/2 + 0.5, 2, dtype=float)
     else:
         print('Havent made this type of reg yet. What you are getting wont work.')
 
