@@ -31,7 +31,7 @@ class Regularization(object):
 
     _allowed_reg_types = ['l1', 'l2', 'norm2',
                           'd2t', 'd2x', 'd2xt',
-                          'max', 'max_filt', 'max_space', 'hadi1']
+                          'max', 'max_filt', 'max_space', 'centralizer1', 'hadi1']
 
     def __init__(self, input_dims=None, num_outputs=None, vals=None):
         """Constructor for Regularization class
@@ -168,7 +168,7 @@ class Regularization(object):
             reg_mat = makeTmats.create_Tikhonov_matrix(
                 self.input_dims, reg_type)
             name = reg_type + '_laplacian'
-        elif reg_type in ['max', 'max_filt', 'max_space']:
+        elif reg_type in ['max', 'max_filt', 'max_space', 'centralizer1']:
             reg_mat = makeMmats.create_maxpenalty_matrix(
                 self.input_dims, reg_type)
             name = reg_type + '_reg'
@@ -215,6 +215,12 @@ class Regularization(object):
                 tf.trace(tf.matmul(
                     w2,
                     tf.matmul(self.mats['max_filt'], w2), transpose_a=True)))
+        elif reg_type == 'centralizer1':
+            reg_pen = tf.multiply(
+                self.vals_var['centralizer1'],
+                tf.trace(tf.matmul(
+                    weights,
+                    tf.matmul(self.mats['centralizer1'], weights), transpose_a=True)))
         elif reg_type == 'd2t':
             reg_pen = tf.multiply(
                 self.vals_var['d2t'],
