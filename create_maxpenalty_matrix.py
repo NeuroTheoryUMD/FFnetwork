@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.sparse as sp
+from __future__ import division
 
 def create_maxpenalty_matrix( input_dims, reg_type ):
     """
@@ -27,7 +28,7 @@ def create_maxpenalty_matrix( input_dims, reg_type ):
     Written in Matlab by James McFarland, adapted into python by Dan Butts
     """
 
-    allowed_reg_types = ['max', 'max_filt', 'max_space']
+    allowed_reg_types = ['max', 'max_filt', 'max_space', 'centralizer1']
     #assert (ischar(reg_type) && ismember(reg_type, allowed_reg_types), 'not an allowed regularization type');
 
     num_filt = input_dims[0] # first dimension is assumed to represent filters
@@ -35,6 +36,7 @@ def create_maxpenalty_matrix( input_dims, reg_type ):
     NK = num_filt * num_pix
 
     rmat = np.zeros([NK,NK], dtype=np.float32)
+    
     if reg_type is 'max':
         # Simply subtract the diagonal from all-ones
         rmat = np.ones([NK,NK],dtype=np.float32) - np.eye(NK, dtype=np.float32)
@@ -46,6 +48,10 @@ def create_maxpenalty_matrix( input_dims, reg_type ):
     elif reg_type is 'max_space':
         ex = np.ones([num_pix, num_pix]) - np.eye(num_pix)
         rmat = np.kron(ex, np.eye(num_filt, dtype=np.float32))
+        
+    elif reg_type is 'centralizer1':
+        for i in range(NK):
+            rmat[i, i] = (i//input_dims[0] - num_pix/2 + 0.5)**2
     else:
         print('Havent made this type of reg yet. What you are getting wont work.')
 
